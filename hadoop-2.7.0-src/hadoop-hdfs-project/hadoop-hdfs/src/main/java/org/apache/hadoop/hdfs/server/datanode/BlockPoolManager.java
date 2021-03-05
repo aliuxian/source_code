@@ -152,6 +152,7 @@ class BlockPoolManager {
     LOG.info("Refresh request received for nameservices: " + conf.get
             (DFSConfigKeys.DFS_NAMESERVICES));
 
+    // 获取NameNode的RPC地址
     Map<String, Map<String, InetSocketAddress>> newAddressMap = DFSUtil
             .getNNServiceRpcAddressesForCluster(conf);
 
@@ -172,19 +173,24 @@ class BlockPoolManager {
       // Step 1. For each of the new nameservices, figure out whether
       // it's an update of the set of NNs for an existing NS,
       // or an entirely new nameservice.
+      // 检查这个NameServices 是已经存在的，还是全新的
       for (String nameserviceId : addrMap.keySet()) {
         if (bpByNameserviceId.containsKey(nameserviceId)) {
+          // 如果是已经存在的，就去更新它
           toRefresh.add(nameserviceId);
         } else {
+          // 新增加的
           toAdd.add(nameserviceId);
         }
       }
       
       // Step 2. Any nameservices we currently have but are no longer present
       // need to be removed.
+      // 已经存在，但是不在addrMap中的nameServices需要移除
       toRemove = Sets.newHashSet(Sets.difference(
           bpByNameserviceId.keySet(), addrMap.keySet()));
-      
+
+      // 确认需要更新的和需要添加的总数满足要求
       assert toRefresh.size() + toAdd.size() ==
         addrMap.size() :
           "toAdd: " + Joiner.on(",").useForNull("<default>").join(toAdd) +
@@ -193,6 +199,7 @@ class BlockPoolManager {
 
       
       // Step 3. Start new nameservices
+      // 为要新增加的NameServices创建BPOfferServices
       if (!toAdd.isEmpty()) {
         LOG.info("Starting BPOfferServices for nameservices: " +
             Joiner.on(",").useForNull("<default>").join(toAdd));
@@ -211,6 +218,7 @@ class BlockPoolManager {
     // Step 4. Shut down old nameservices. This happens outside
     // of the synchronized(this) lock since they need to call
     // back to .remove() from another thread
+    // 停止不需要的nameServices（BPOfferService）
     if (!toRemove.isEmpty()) {
       LOG.info("Stopping BPOfferServices for nameservices: " +
           Joiner.on(",").useForNull("<default>").join(toRemove));
@@ -224,6 +232,7 @@ class BlockPoolManager {
     }
     
     // Step 5. Update nameservices whose NN list has changed
+    // 更新
     if (!toRefresh.isEmpty()) {
       LOG.info("Refreshing list of NNs for nameservices: " +
           Joiner.on(",").useForNull("<default>").join(toRefresh));

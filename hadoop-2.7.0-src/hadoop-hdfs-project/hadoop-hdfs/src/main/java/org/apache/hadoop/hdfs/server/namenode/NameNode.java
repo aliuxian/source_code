@@ -134,11 +134,13 @@ import static org.apache.hadoop.util.ToolRunner.confirmPrompt;
  * NameNode serves as both directory namespace manager and
  * "inode table" for the Hadoop DFS.  There is a single NameNode
  * running in any DFS deployment.  (Well, except when there
- * is a second backup/failover NameNode, or when using federated NameNodes.)
+ * is a second backup/failover NameNode, or when using federated NameNodes.)\
+ *
+ * NameNode 是目录名称的管理器，也是Hadoop DFS的"inode table"
  *
  * The NameNode controls two critical tables:
- *   1)  filename->blocksequence (namespace)
- *   2)  block->machinelist ("inodes")
+ *   1)  filename->blocksequence (namespace)    文件名与block的关系（存储在磁盘上）
+ *   2)  block->machinelist ("inodes")          block与DataNode的关系（NameNode启动的时候在内存中重构）
  *
  * The first table is stored on disk and is very precious.
  * The second table is rebuilt every time the NameNode comes up.
@@ -166,6 +168,12 @@ import static org.apache.hadoop.util.ToolRunner.confirmPrompt;
  * {@link org.apache.hadoop.hdfs.server.protocol.NamenodeProtocol} interface,
  * used by secondary namenodes or rebalancing processes to get partial
  * NameNode state, for example partial blocksMap etc.
+ *
+ *
+ *
+ * 和客户端通信  ClientProtocol
+ * 和DataNode通信   DatanodeProtocol
+ * 和其它NameNode通信    eg: secondaryNameNode    standby NameNode
  **********************************************************/
 @InterfaceAudience.Private
 public class NameNode implements NameNodeStatusMXBean {
@@ -635,13 +643,16 @@ public class NameNode implements NameNodeStatusMXBean {
     StartupProgressMetrics.register(startupProgress);
 
     if (NamenodeRole.NAMENODE == role) {
+      // 创建HTTP服务，即HDFS的web界面  默认50070端口
       startHttpServer(conf);
     }
 
     this.spanReceiverHost = SpanReceiverHost.getInstance(conf);
 
+    // 加载元数据
     loadNamesystem(conf);
 
+    // 创建RPC服务，等待客户端调用
     rpcServer = createRpcServer(conf);
     if (clientNamenodeAddress == null) {
       // This is expected for MiniDFSCluster. Set it now using 
@@ -655,7 +666,8 @@ public class NameNode implements NameNodeStatusMXBean {
       httpServer.setNameNodeAddress(getNameNodeAddress());
       httpServer.setFSImage(getFSImage());
     }
-    
+
+    // 监控GC的时间，如果GC的时间超出规定的最大时间，会进行相应的记录
     pauseMonitor = new JvmPauseMonitor(conf);
     pauseMonitor.start();
     metrics.getJvmMetrics().setPauseMonitor(pauseMonitor);
@@ -801,12 +813,14 @@ public class NameNode implements NameNodeStatusMXBean {
     setClientNamenodeAddress(conf);
     String nsId = getNameServiceId(conf);
     String namenodeId = HAUtil.getNameNodeId(conf, nsId);
+    // HA相关
     this.haEnabled = HAUtil.isHAEnabled(conf, nsId);
     state = createHAState(getStartupOption(conf));
     this.allowStaleStandbyReads = HAUtil.shouldAllowStandbyReads(conf);
     this.haContext = createHAContext();
     try {
       initializeGenericKeys(conf, nsId, namenodeId);
+      // 重点代码
       initialize(conf);
       try {
         haContext.writeLock();
@@ -1416,6 +1430,7 @@ public class NameNode implements NameNodeStatusMXBean {
     LOG.info("createNameNode " + Arrays.asList(argv));
     if (conf == null)
       conf = new HdfsConfiguration();
+    // 参数解析
     StartupOption startOpt = parseArguments(argv);
     if (startOpt == null) {
       printUsage(System.err);
@@ -1425,6 +1440,7 @@ public class NameNode implements NameNodeStatusMXBean {
 
     switch (startOpt) {
       case FORMAT: {
+        // hadoop namenode -format
         boolean aborted = format(conf, startOpt.getForceFormat(),
             startOpt.getInteractiveFormat());
         terminate(aborted ? 1 : 0);
@@ -1550,8 +1566,10 @@ public class NameNode implements NameNodeStatusMXBean {
 
     try {
       StringUtils.startupShutdownMessage(NameNode.class, argv, LOG);
+      // 创建NameNode
       NameNode namenode = createNameNode(argv, null);
       if (namenode != null) {
+        // 让主线程等待namenode执行结束
         namenode.join();
       }
     } catch (Throwable e) {

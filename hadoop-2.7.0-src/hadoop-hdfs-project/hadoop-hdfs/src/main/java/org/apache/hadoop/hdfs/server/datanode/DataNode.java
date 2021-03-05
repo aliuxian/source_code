@@ -1131,7 +1131,9 @@ public class DataNode extends ReconfigurableBase
     // global DN settings
     registerMXBean();
     initDataXceiver(conf);
+    // http服务
     startInfoServer(conf);
+    // 监控GC的时间，超过规定的时间就会进行相应的记录
     pauseMonitor = new JvmPauseMonitor(conf);
     pauseMonitor.start();
   
@@ -1142,12 +1144,14 @@ public class DataNode extends ReconfigurableBase
     dnUserName = UserGroupInformation.getCurrentUser().getShortUserName();
     LOG.info("dnUserName = " + dnUserName);
     LOG.info("supergroup = " + supergroup);
+
     initIpcServer(conf);
 
     metrics = DataNodeMetrics.create(conf, getDisplayName());
     metrics.getJvmMetrics().setPauseMonitor(pauseMonitor);
     
     blockPoolManager = new BlockPoolManager(this);
+
     blockPoolManager.refreshNamenodes(conf);
 
     // Create the ReadaheadPool from the DataNode context so we can
@@ -2284,10 +2288,12 @@ public class DataNode extends ReconfigurableBase
       printUsage(System.err);
       return null;
     }
+
     Collection<StorageLocation> dataLocations = getStorageLocations(conf);
     UserGroupInformation.setConfiguration(conf);
     SecurityUtil.login(conf, DFS_DATANODE_KEYTAB_FILE_KEY,
         DFS_DATANODE_KERBEROS_PRINCIPAL_KEY);
+
     return makeInstance(dataLocations, conf, resources);
   }
 
@@ -2512,8 +2518,10 @@ public class DataNode extends ReconfigurableBase
     int errorCode = 0;
     try {
       StringUtils.startupShutdownMessage(DataNode.class, args, LOG);
+      // 创建DataNode
       DataNode datanode = createDataNode(args, null, resources);
       if (datanode != null) {
+        // 主线程等待datanode执行完毕
         datanode.join();
       } else {
         errorCode = 1;

@@ -3,8 +3,34 @@
   <component name="AutoImportSettings">
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
+  <component name="BranchesTreeState">
+    <expand>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="LOCAL_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="GROUP_NODE:origin" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+    </expand>
+    <select />
+  </component>
   <component name="ChangeListManager">
-    <list default="true" id="488838e3-f928-4bbf-9342-bca6ee5a2999" name="Default Changelist" comment="" />
+    <list default="true" id="488838e3-f928-4bbf-9342-bca6ee5a2999" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/BPOfferService.java" beforeDir="false" afterPath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/BPOfferService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/BPServiceActor.java" beforeDir="false" afterPath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/BPServiceActor.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/BlockPoolManager.java" beforeDir="false" afterPath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/BlockPoolManager.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/DataNode.java" beforeDir="false" afterPath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/DataNode.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSNamesystem.java" beforeDir="false" afterPath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSNamesystem.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/NameNode.java" beforeDir="false" afterPath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/NameNode.java" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -12,6 +38,9 @@
   </component>
   <component name="CodeStyleSettingsInfer">
     <option name="done" value="true" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
   </component>
   <component name="MavenImportPreferences">
     <option name="generalSettings">
@@ -24,6 +53,7 @@
     <option name="version" value="1" />
   </component>
   <component name="ProjectId" id="1pE6gtMDdiRqAfMQzvQS49UNtYr" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
@@ -31,6 +61,7 @@
   </component>
   <component name="PropertiesComponent">
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
   </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
@@ -43,5 +74,41 @@
       <updated>1614736021369</updated>
     </task>
     <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <option name="LAST_COMMIT_MESSAGE" value="" />
+  </component>
+  <component name="WindowStateProjectService">
+    <state width="1807" height="266" key="GridCell.Tab.0.bottom" timestamp="1614848470412">
+      <screen x="1920" y="0" width="1920" height="1080" />
+    </state>
+    <state width="1807" height="266" key="GridCell.Tab.0.bottom/59.24.1861.1056/1920.0.1920.1080@1920.0.1920.1080" timestamp="1614848470412" />
+    <state width="1807" height="266" key="GridCell.Tab.0.center" timestamp="1614848470412">
+      <screen x="1920" y="0" width="1920" height="1080" />
+    </state>
+    <state width="1807" height="266" key="GridCell.Tab.0.center/59.24.1861.1056/1920.0.1920.1080@1920.0.1920.1080" timestamp="1614848470412" />
+    <state width="1807" height="266" key="GridCell.Tab.0.left" timestamp="1614848470412">
+      <screen x="1920" y="0" width="1920" height="1080" />
+    </state>
+    <state width="1807" height="266" key="GridCell.Tab.0.left/59.24.1861.1056/1920.0.1920.1080@1920.0.1920.1080" timestamp="1614848470412" />
+    <state width="1807" height="266" key="GridCell.Tab.0.right" timestamp="1614848470412">
+      <screen x="1920" y="0" width="1920" height="1080" />
+    </state>
+    <state width="1807" height="266" key="GridCell.Tab.0.right/59.24.1861.1056/1920.0.1920.1080@1920.0.1920.1080" timestamp="1614848470412" />
+    <state x="2572" y="236" width="672" height="678" key="search.everywhere.popup" timestamp="1614931556852">
+      <screen x="1920" y="0" width="1920" height="1080" />
+    </state>
+    <state x="2572" y="236" width="672" height="678" key="search.everywhere.popup/59.24.1861.1056/1920.0.1920.1080@1920.0.1920.1080" timestamp="1614931556852" />
   </component>
 </project>

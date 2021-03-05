@@ -4482,7 +4482,10 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   void registerDatanode(DatanodeRegistration nodeReg) throws IOException {
     writeLock();
     try {
+      // BlockManager
+      // DatanodeManager
       getBlockManager().getDatanodeManager().registerDatanode(nodeReg);
+      // 检查安全模式
       checkSafeMode();
     } finally {
       writeUnlock();

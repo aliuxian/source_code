@@ -216,10 +216,11 @@ class BPServiceActor implements Runnable {
 
   private void connectToNNAndHandshake() throws IOException {
     // get NN proxy
+    // NameNodeRPC服务客户端代理
     bpNamenode = dn.connectToNN(nnAddr);
 
-    // First phase of the handshake with NN - get the namespace
-    // info.
+    // First phase of the handshake with NN - get the namespace info.
+    // 获取名称空间
     NamespaceInfo nsInfo = retrieveNamespaceInfo();
     
     // Verify that this matches the other NN in this HA pair.
@@ -228,6 +229,7 @@ class BPServiceActor implements Runnable {
     bpos.verifyAndSetNamespaceInfo(nsInfo);
     
     // Second phase of the handshake with the NN.
+    // 注册
     register(nsInfo);
   }
 
@@ -689,7 +691,7 @@ class BPServiceActor implements Runnable {
 
         //
         // Every so often, send heartbeat or block-report
-        //
+        //  3s 发送一次心跳
         if (startTime - lastHeartbeat >= dnConf.heartBeatInterval) {
           //
           // All heartbeat messages include following info:
@@ -700,6 +702,7 @@ class BPServiceActor implements Runnable {
           //
           lastHeartbeat = startTime;
           if (!dn.areHeartbeatsDisabledForTests()) {
+            // 发送心跳
             HeartbeatResponse resp = sendHeartBeat();
             assert resp != null;
             dn.getMetrics().addHeartbeat(monotonicNow() - startTime);

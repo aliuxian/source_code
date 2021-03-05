@@ -122,6 +122,7 @@ class BPOfferService {
     this.dn = dn;
 
     for (InetSocketAddress addr : nnAddrs) {
+      // 为每一个NameNode（主备）创建一个BPServiceActor
       this.bpServices.add(new BPServiceActor(addr, this));
     }
   }
