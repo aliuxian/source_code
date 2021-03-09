@@ -24,12 +24,6 @@
   <component name="ChangeListManager">
     <list default="true" id="488838e3-f928-4bbf-9342-bca6ee5a2999" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/BPOfferService.java" beforeDir="false" afterPath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/BPOfferService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/BPServiceActor.java" beforeDir="false" afterPath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/BPServiceActor.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/BlockPoolManager.java" beforeDir="false" afterPath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/BlockPoolManager.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/DataNode.java" beforeDir="false" afterPath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/DataNode.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSNamesystem.java" beforeDir="false" afterPath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSNamesystem.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/NameNode.java" beforeDir="false" afterPath="$PROJECT_DIR$/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/NameNode.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -73,6 +67,14 @@
       <option name="presentableId" value="Default" />
       <updated>1614736021369</updated>
     </task>
+    <task id="LOCAL-00001" summary="HDFS启动相关">
+      <created>1614932261476</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1614932261476</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -85,9 +87,11 @@
         </entry>
       </map>
     </option>
+    <option name="oldMeFiltersMigrated" value="true" />
   </component>
   <component name="VcsManagerConfiguration">
-    <option name="LAST_COMMIT_MESSAGE" value="" />
+    <MESSAGE value="HDFS启动相关" />
+    <option name="LAST_COMMIT_MESSAGE" value="HDFS启动相关" />
   </component>
   <component name="WindowStateProjectService">
     <state width="1807" height="266" key="GridCell.Tab.0.bottom" timestamp="1614848470412">
@@ -106,6 +110,10 @@
       <screen x="1920" y="0" width="1920" height="1080" />
     </state>
     <state width="1807" height="266" key="GridCell.Tab.0.right/59.24.1861.1056/1920.0.1920.1080@1920.0.1920.1080" timestamp="1614848470412" />
+    <state x="2509" y="271" key="Vcs.Push.Dialog.v2" timestamp="1614932279912">
+      <screen x="1920" y="0" width="1920" height="1080" />
+    </state>
+    <state x="2509" y="271" key="Vcs.Push.Dialog.v2/59.24.1861.1056/1920.0.1920.1080@1920.0.1920.1080" timestamp="1614932279912" />
     <state x="2572" y="236" width="672" height="678" key="search.everywhere.popup" timestamp="1614931556852">
       <screen x="1920" y="0" width="1920" height="1080" />
     </state>
