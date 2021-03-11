@@ -21,3 +21,28 @@
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
+
+.bak
+build_info.properties
+.classpath
+dependency-reduced-pom.xml
+*.diff
+.DS_Store
+.idea/
+*.iml
+*.jar
+.project
+.settings/
+.tags*
+target/
+test-output/
+nohup*
+*.log
+*.swp
+*.pyc
+.sbtserver*
+thrift/src/main/thrift-java
+query/conf/*.properties
+query/conf/log4j.xml
+*.plantuml
+
