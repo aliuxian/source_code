@@ -92,6 +92,10 @@ public class DefaultDispatcherResourceManagerComponentFactory
             @Nonnull DispatcherRunnerFactory dispatcherRunnerFactory,
             @Nonnull ResourceManagerFactory<?> resourceManagerFactory,
             @Nonnull RestEndpointFactory<?> restEndpointFactory) {
+        /**
+         * biglau
+         * 三大工厂实例
+         */
         this.dispatcherRunnerFactory = dispatcherRunnerFactory;
         this.resourceManagerFactory = resourceManagerFactory;
         this.restEndpointFactory = restEndpointFactory;
@@ -157,6 +161,10 @@ public class DefaultDispatcherResourceManagerComponentFactory
                                     dispatcherGatewayRetriever,
                                     executor);
 
+            /**
+             * biglau
+             * 创建webMonitorEndpoint
+             */
             webMonitorEndpoint =
                     restEndpointFactory.createRestEndpoint(
                             configuration,
@@ -169,10 +177,17 @@ public class DefaultDispatcherResourceManagerComponentFactory
                             fatalErrorHandler);
 
             log.debug("Starting Dispatcher REST endpoint.");
+            /**
+             * biglau
+             * 启动webMonitorEndpoint
+             */
             webMonitorEndpoint.start();
 
             final String hostname = RpcUtils.getHostname(rpcService);
 
+            /**
+             * 创建resourceManager
+             */
             resourceManager =
                     resourceManagerFactory.createResourceManager(
                             configuration,
@@ -208,6 +223,9 @@ public class DefaultDispatcherResourceManagerComponentFactory
                             ioExecutor);
 
             log.debug("Starting Dispatcher.");
+            /**
+             * 创建dispatcherRunner，并在内部启动
+             */
             dispatcherRunner =
                     dispatcherRunnerFactory.createDispatcherRunner(
                             highAvailabilityServices.getDispatcherLeaderElectionService(),
@@ -218,6 +236,10 @@ public class DefaultDispatcherResourceManagerComponentFactory
                             partialDispatcherServices);
 
             log.debug("Starting ResourceManager.");
+            /**
+             * biglau
+             * 启动resourceManager
+             */
             resourceManager.start();
 
             resourceManagerRetrievalService.start(resourceManagerGatewayRetriever);
@@ -279,6 +301,13 @@ public class DefaultDispatcherResourceManagerComponentFactory
 
     public static DefaultDispatcherResourceManagerComponentFactory createSessionComponentFactory(
             ResourceManagerFactory<?> resourceManagerFactory) {
+        /**
+         * biglau
+         * 第二个工厂实例：
+         * SessionDispatcherFactory.INSTANCE
+         * 第三个工厂实例：
+         * SessionRestEndpointFactory.INSTANCE
+         */
         return new DefaultDispatcherResourceManagerComponentFactory(
                 DefaultDispatcherRunnerFactory.createSessionRunner(
                         SessionDispatcherFactory.INSTANCE),

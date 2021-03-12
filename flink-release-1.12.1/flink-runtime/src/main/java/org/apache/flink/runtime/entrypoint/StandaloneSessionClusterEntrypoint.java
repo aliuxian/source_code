@@ -35,6 +35,11 @@ public class StandaloneSessionClusterEntrypoint extends SessionClusterEntrypoint
     @Override
     protected DefaultDispatcherResourceManagerComponentFactory
             createDispatcherResourceManagerComponentFactory(Configuration configuration) {
+        /**
+         * biglau：
+         * 创建第一个工厂实例：
+         * StandaloneResourceManagerFactory
+         */
         return DefaultDispatcherResourceManagerComponentFactory.createSessionComponentFactory(
                 StandaloneResourceManagerFactory.getInstance());
     }
@@ -46,16 +51,19 @@ public class StandaloneSessionClusterEntrypoint extends SessionClusterEntrypoint
         SignalHandler.register(LOG);
         JvmShutdownSafeguard.installAsShutdownHook(LOG);
 
+        // 解析main函数的参数(命令行参数)
         final EntrypointClusterConfiguration entrypointClusterConfiguration =
                 ClusterEntrypointUtils.parseParametersOrExit(
                         args,
                         new EntrypointClusterConfigurationParserFactory(),
                         StandaloneSessionClusterEntrypoint.class);
+        // 加载flink-conf.yaml 文件
         Configuration configuration = loadConfiguration(entrypointClusterConfiguration);
 
         StandaloneSessionClusterEntrypoint entrypoint =
                 new StandaloneSessionClusterEntrypoint(configuration);
 
+        // 启动入口
         ClusterEntrypoint.runClusterEntrypoint(entrypoint);
     }
 }

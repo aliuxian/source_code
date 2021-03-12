@@ -34,6 +34,7 @@ bin=`cd "$bin"; pwd`
 
 . "$bin"/config.sh
 
+# 从节点的启动标识
 ENTRYPOINT=taskexecutor
 
 if [[ $STARTSTOP == "start" ]] || [[ $STARTSTOP == "start-foreground" ]]; then

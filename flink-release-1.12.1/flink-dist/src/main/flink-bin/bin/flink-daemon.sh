@@ -30,6 +30,7 @@ bin=`cd "$bin"; pwd`
 . "$bin"/config.sh
 
 case $DAEMON in
+    # 从节点的启动类  TaskManagerRunner
     (taskexecutor)
         CLASS_TO_RUN=org.apache.flink.runtime.taskexecutor.TaskManagerRunner
     ;;
@@ -42,6 +43,7 @@ case $DAEMON in
         CLASS_TO_RUN=org.apache.flink.runtime.webmonitor.history.HistoryServer
     ;;
 
+    # 主节点的启动类 StandaloneSessionClusterEntrypoint
     (standalonesession)
         CLASS_TO_RUN=org.apache.flink.runtime.entrypoint.StandaloneSessionClusterEntrypoint
     ;;
@@ -130,6 +132,9 @@ case $STARTSTOP in
         # Evaluate user options for local variable expansion
         FLINK_ENV_JAVA_OPTS=$(eval echo ${FLINK_ENV_JAVA_OPTS})
 
+        # 通过java命令来启动对应的启动类：
+        # 从节点：TaskManagerRunner   （TaskManager）
+        # 主节点：StandaloneSessionClusterEntrypoint  （JobManager）
         echo "Starting $DAEMON daemon on host $HOSTNAME."
         $JAVA_RUN $JVM_ARGS ${FLINK_ENV_JAVA_OPTS} "${log_setting[@]}" -classpath "`manglePathList "$FLINK_TM_CLASSPATH:$INTERNAL_HADOOP_CLASSPATHS"`" ${CLASS_TO_RUN} "${ARGS[@]}" > "$out" 200<&- 2>&1 < /dev/null &
 

@@ -456,11 +456,13 @@ TMWorkers() {
     readWorkers
 
     if [ ${WORKERS_ALL_LOCALHOST} = true ] ; then
+      # 本机就是worker节点，直接启动
         # all-local setup
         for worker in ${WORKERS[@]}; do
             "${FLINK_BIN_DIR}"/taskmanager.sh "${CMD}"
         done
     else
+      # 利用ssh远程启动
         # non-local setup
         # start/stop TaskManager instance(s) using pdsh (Parallel Distributed Shell) when available
         command -v pdsh >/dev/null 2>&1

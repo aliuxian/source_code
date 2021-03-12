@@ -34,6 +34,7 @@ bin=`cd "$bin"; pwd`
 
 . "$bin"/config.sh
 
+# standalone模式下主节点的启动标识
 ENTRYPOINT=standalonesession
 
 if [[ $STARTSTOP == "start" ]] || [[ $STARTSTOP == "start-foreground" ]]; then

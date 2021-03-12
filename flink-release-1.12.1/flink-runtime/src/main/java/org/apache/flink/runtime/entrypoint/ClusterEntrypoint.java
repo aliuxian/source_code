@@ -220,16 +220,25 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
     private void runCluster(Configuration configuration, PluginManager pluginManager)
             throws Exception {
         synchronized (lock) {
+            // 初始化基础服务
+            // RPC    JMX（1.12新增）    IOExecutor   HA    blob     heartbeat    metric     graph store
             initializeServices(configuration, pluginManager);
 
             // write host information into configuration
             configuration.setString(JobManagerOptions.ADDRESS, commonRpcService.getAddress());
             configuration.setInteger(JobManagerOptions.PORT, commonRpcService.getPort());
 
+
+            /**
+             * 创建DispatcherResourceManagerComponent，初始化以下工厂类：
+             */
             final DispatcherResourceManagerComponentFactory
                     dispatcherResourceManagerComponentFactory =
                             createDispatcherResourceManagerComponentFactory(configuration);
 
+            /**
+             *
+             */
             clusterComponent =
                     dispatcherResourceManagerComponentFactory.create(
                             configuration,
@@ -269,6 +278,7 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
         LOG.info("Initializing cluster services.");
 
         synchronized (lock) {
+            // 创建基础的RPC服务（actorSystem）
             commonRpcService =
                     AkkaRpcServiceUtils.createRemoteRpcService(
                             configuration,
@@ -277,25 +287,36 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
                             configuration.getString(JobManagerOptions.BIND_HOST),
                             configuration.getOptional(JobManagerOptions.RPC_BIND_PORT));
 
+            // 创建JMX服务 用于客户端链接 JobManager JVM 进行监控
             JMXService.startInstance(configuration.getString(JMXServerOptions.JMX_SERVER_PORT));
 
             // update the configuration used to create the high availability services
             configuration.setString(JobManagerOptions.ADDRESS, commonRpcService.getAddress());
             configuration.setInteger(JobManagerOptions.PORT, commonRpcService.getPort());
 
+            /**
+             * biglau
+             * 创建一个IO线程池
+             *  线程数量：4*core
+             */
             ioExecutor =
                     Executors.newFixedThreadPool(
                             ClusterEntrypointUtils.getPoolSize(configuration),
                             new ExecutorThreadFactory("cluster-io"));
+            // ha服务，负责 HA 服务的是：ZooKeeperHaServices
             haServices = createHaServices(configuration, ioExecutor);
+
+            // blob服务（大文件系统  eg': 作业的jar包）
             blobServer = new BlobServer(configuration, haServices.createBlobStore());
             blobServer.start();
+            // 心跳服务
             heartbeatServices = createHeartbeatServices(configuration);
             metricRegistry = createMetricRegistry(configuration, pluginManager);
 
             final RpcService metricQueryServiceRpcService =
                     MetricUtils.startRemoteMetricsRpcService(
                             configuration, commonRpcService.getAddress());
+            // 启动 metrics（性能监控） 相关的服务，内部也是启动一个 ActorSystem
             metricRegistry.startQueryService(metricQueryServiceRpcService, null);
 
             final String hostname = RpcUtils.getHostname(commonRpcService);
@@ -307,9 +328,21 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
                             ConfigurationUtils.getSystemResourceMetricsProbingInterval(
                                     configuration));
 
+            // ExecutionGraph的存储系统
+            // 在初始化Dispatcher的时候还会创建一个JobGraph
             archivedExecutionGraphStore =
                     createSerializableExecutionGraphStore(
                             configuration, commonRpcService.getScheduledExecutor());
+
+            /**
+             * biglau
+             * Flink的四层模型
+             * StreamGraph 将Operator 连接起来
+             * JobGraph   # 对StreamGraph做一些优化
+             * 以上步骤在客户端完成的，所以实际上提交作业的时候提交的是JobGraph
+             * ExecutionGraph
+             * 物理执行
+             */
         }
     }
 
@@ -566,6 +599,7 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
 
         final String clusterEntrypointName = clusterEntrypoint.getClass().getSimpleName();
         try {
+            // 启动入口
             clusterEntrypoint.startCluster();
         } catch (ClusterEntrypointException e) {
             LOG.error(
