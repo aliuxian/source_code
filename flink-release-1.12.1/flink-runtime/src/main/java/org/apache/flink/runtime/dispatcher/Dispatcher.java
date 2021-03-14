@@ -207,6 +207,9 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
     @Override
     public void onStart() throws Exception {
         try {
+            /**
+             * 启动dispatcher的监控
+             */
             startDispatcherServices();
         } catch (Throwable t) {
             final DispatcherException exception =
@@ -242,6 +245,10 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
     private void runRecoveredJob(final JobGraph recoveredJob) {
         checkNotNull(recoveredJob);
         try {
+            /**
+             * 运行恢复的Job
+             * ！！！！   这个是恢复的Job 不笔试正常提交的Job
+             */
             runJob(recoveredJob, ExecutionType.RECOVERY);
         } catch (Throwable throwable) {
             onFatalError(
@@ -312,6 +319,9 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
                                 "Currently jobs is not supported if parts of the vertices have "
                                         + "resources configured. The limitation will be removed in future versions."));
             } else {
+                /**
+                 * 提交
+                 */
                 return internalSubmitJob(jobGraph);
             }
         } catch (FlinkException e) {
@@ -364,7 +374,12 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
         log.info("Submitting job {} ({}).", jobGraph.getJobID(), jobGraph.getName());
 
         final CompletableFuture<Acknowledge> persistAndRunFuture =
-                waitForTerminatingJob(jobGraph.getJobID(), jobGraph, this::persistAndRunJob)
+                waitForTerminatingJob(jobGraph.getJobID(), jobGraph,
+                        /**
+                         * 先持久化，
+                         * 然后运行（拉起JobMaster）
+                         */
+                        this::persistAndRunJob)
                         .thenApply(ignored -> Acknowledge.get());
 
         return persistAndRunFuture.handleAsync(
@@ -390,22 +405,59 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
     }
 
     private void persistAndRunJob(JobGraph jobGraph) throws Exception {
+        /**
+         * 服务端保存JobGraph
+         *
+         * jobGraphWriter 就是 DefaultJobGraphStore （老版本的是ZookeeperJobGraphStore）
+         *
+         * 先把JobGraph持久化到fileSystem，返回一个StateHandle，再把该状态句柄保存到zk中
+         * 为什么不直接HDFS或者zk，而要两者结合：
+         *          怕对象太大，所以直接存zk
+         *          存句柄到zk是为了让速度更快
+         */
         jobGraphWriter.putJobGraph(jobGraph);
+
+        /**
+         *
+         */
         runJob(jobGraph, ExecutionType.SUBMISSION);
     }
 
+    /**
+     * flink 客户端提交作业的时候会启动一个JobMaster，JobMaste回来调用这个runJob方法
+     */
     private void runJob(JobGraph jobGraph, ExecutionType executionType) {
         Preconditions.checkState(!runningJobs.containsKey(jobGraph.getJobID()));
         long initializationTimestamp = System.currentTimeMillis();
+
+        /**
+         * 为JobGraph创建出来JobMaster，别被名字误导
+         *
+         * 创建JobManagerRunner（具体实现JobManagerRunnerImpl） 内部封装了一个 JobMasterService 对象，这个对象的职责就是创建JobMaster
+         *
+         *
+         * 创建JobMaster，同时根据JobGraph生成ExecutionGraph
+         *
+         *
+         * 资源管理：ResourceManager + TaskManager
+         * 任务运行：JobMaster + StreamTask
+         */
         CompletableFuture<JobManagerRunner> jobManagerRunnerFuture =
                 createJobManagerRunner(jobGraph, initializationTimestamp);
 
+        /**
+         * 调度Job
+         */
         DispatcherJob dispatcherJob =
                 DispatcherJob.createFor(
                         jobManagerRunnerFuture,
                         jobGraph.getJobID(),
                         jobGraph.getName(),
                         initializationTimestamp);
+
+        /**
+         * 相当于进行一个注册
+         */
         runningJobs.put(jobGraph.getJobID(), dispatcherJob);
 
         final JobID jobId = jobGraph.getJobID();
@@ -474,6 +526,9 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
         return CompletableFuture.supplyAsync(
                 () -> {
                     try {
+                        /**
+                         * 重点
+                         */
                         JobManagerRunner runner =
                                 jobManagerRunnerFactory.createJobManagerRunner(
                                         jobGraph,
@@ -486,6 +541,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
                                                 jobManagerMetricGroup),
                                         fatalErrorHandler,
                                         initializationTimestamp);
+                        // 里面啥也没有
                         runner.start();
                         return runner;
                     } catch (Exception e) {

@@ -84,7 +84,18 @@ public class DefaultLeaderElectionService
         Preconditions.checkState(leaderContender == null, "Contender was already set.");
 
         synchronized (lock) {
+            /**
+             * 在启动WebMonitorEndpoint的时候，这个contender是DispatcherRestEndpoint
+             * 创建ResourceManager的时候，这个contender是ResourceManager
+             *
+             *
+             * 提交作业的时候contender  就是 JobManagerRunnerImpl
+             */
             leaderContender = contender;
+
+            /**
+             * 封装一个Driver来进行选举
+             */
             leaderElectionDriver =
                     leaderElectionDriverFactory.createLeaderElectionDriver(
                             this,
@@ -123,6 +134,9 @@ public class DefaultLeaderElectionService
         synchronized (lock) {
             if (hasLeadership(leaderSessionID)) {
                 if (running) {
+                    /**
+                     *
+                     */
                     confirmLeaderInformation(leaderSessionID, leaderAddress);
                 } else {
                     if (LOG.isDebugEnabled()) {
@@ -183,6 +197,10 @@ public class DefaultLeaderElectionService
     private void confirmLeaderInformation(UUID leaderSessionID, String leaderAddress) {
         confirmedLeaderSessionID = leaderSessionID;
         confirmedLeaderAddress = leaderAddress;
+        /**
+         * 确认自己是不是那个Leader
+         * 将leader  的  address 以及 session 和zk的session 写到zookeeper中
+         */
         leaderElectionDriver.writeLeaderInformation(
                 LeaderInformation.known(confirmedLeaderSessionID, confirmedLeaderAddress));
     }
@@ -207,6 +225,17 @@ public class DefaultLeaderElectionService
                             leaderContender.getDescription(),
                             issuedLeaderSessionID);
                 }
+
+                /**
+                 *
+                 * leaderContender 被封装在了这个Driver中
+                 *
+                 * leaderContender 用四种情况：
+                 * DefaultDispatcherRunner  ==》 dispatcher
+                 * JobManagerRunnerImpl     ==》 JobMaster
+                 * ResourceManager          ==》 ResourceManager
+                 * WebMonitorEndpoint       ==》 WebMonitorEndpoint
+                 */
 
                 leaderContender.grantLeadership(issuedLeaderSessionID);
             } else {

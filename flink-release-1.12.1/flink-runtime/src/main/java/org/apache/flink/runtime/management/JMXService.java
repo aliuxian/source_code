@@ -49,6 +49,9 @@ public class JMXService {
     public static synchronized void startInstance(String portsConfig) {
         if (jmxServer == null) {
             if (portsConfig != null) {
+                /**
+                 * 给了一个范围，在里面找到一个未被占用的端口号
+                 */
                 Iterator<Integer> ports = NetUtils.getPortRangeFromString(portsConfig);
                 if (ports.hasNext()) {
                     jmxServer = startJMXServerWithPortRanges(ports);

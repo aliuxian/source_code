@@ -63,6 +63,9 @@ public enum DefaultJobManagerRunnerFactory implements JobManagerRunnerFactory {
                 ShuffleServiceLoader.loadShuffleServiceFactory(configuration)
                         .createShuffleMaster(configuration);
 
+        /**
+         * 创建 JobMasterServiceFactory
+         */
         final JobMasterServiceFactory jobMasterFactory =
                 new DefaultJobMasterServiceFactory(
                         jobMasterConfiguration,
@@ -76,6 +79,10 @@ public enum DefaultJobManagerRunnerFactory implements JobManagerRunnerFactory {
                         schedulerNGFactory,
                         shuffleMaster);
 
+        /**
+         * 通过工厂创建JobMasterService
+         * 启动JobMaster
+         */
         return new JobManagerRunnerImpl(
                 jobGraph,
                 jobMasterFactory,

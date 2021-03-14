@@ -48,6 +48,9 @@ public class StandaloneClusterDescriptor implements ClusterDescriptor<Standalone
             StandaloneClusterId standaloneClusterId) throws ClusterRetrieveException {
         return () -> {
             try {
+                /**
+                 *
+                 */
                 return new RestClusterClient<>(config, standaloneClusterId);
             } catch (Exception e) {
                 throw new RuntimeException("Couldn't retrieve standalone cluster", e);

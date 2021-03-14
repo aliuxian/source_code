@@ -297,6 +297,10 @@ public class SlotManagerImpl implements SlotManager {
 
         started = true;
 
+        /**
+         * 每隔30s执行一次checkTaskManagerTimeoutsAndRedundancy()
+         * 看看哪些TaskManager超时了
+         */
         taskManagerTimeoutsAndRedundancyCheck =
                 scheduledExecutor.scheduleWithFixedDelay(
                         () ->
@@ -306,6 +310,10 @@ public class SlotManagerImpl implements SlotManager {
                         taskManagerTimeout.toMilliseconds(),
                         TimeUnit.MILLISECONDS);
 
+        /**
+         * 每5分钟执行一次checkSlotRequestTimeouts看看哪些SlotRequest超时了  =》 超时将其设置为失败
+         * SlotRequest 如果处于正在申请中的状态 称之为 PendingRequest
+         */
         slotRequestTimeoutCheck =
                 scheduledExecutor.scheduleWithFixedDelay(
                         () -> mainThreadExecutor.execute(() -> checkSlotRequestTimeouts()),
@@ -469,9 +477,11 @@ public class SlotManagerImpl implements SlotManager {
 
         // we identify task managers by their instance id
         if (taskManagerRegistrations.containsKey(taskExecutorConnection.getInstanceID())) {
+            // 不是第一次了
             reportSlotStatus(taskExecutorConnection.getInstanceID(), initialSlotReport);
             return false;
         } else {
+            // 第一次汇报
             if (isMaxSlotNumExceededAfterRegistration(initialSlotReport)) {
                 LOG.info(
                         "The total number of slots exceeds the max limitation {}, release the excess resource.",
@@ -729,8 +739,12 @@ public class SlotManagerImpl implements SlotManager {
                                     slotId)));
         }
 
+        /**
+         * 将Slot添加到slots的HashMap中
+         */
         final TaskManagerSlot slot =
                 createAndRegisterTaskManagerSlot(slotId, resourceProfile, taskManagerConnection);
+
 
         final PendingTaskManagerSlot pendingTaskManagerSlot;
 
@@ -843,6 +857,22 @@ public class SlotManagerImpl implements SlotManager {
         }
     }
 
+    /**
+     * Slot的申请：PendingSlotRequest
+     * Slot 有三种状态：
+     *      allocated  已经被分配了
+     *      free       没有被分配
+     *      pending    ResourceManager已经将其分配给了某个JonMaster（逻辑上的分配，真正的分配还需要TaskExecutor
+     *
+     * JobMater向ResourceManager申请资源
+     * ResourceManager经过计算之后，会将某个处于free状态的Slot分配（assign）给JobMaster，
+     *      同时ResourceManager也会告知JobMaster：我已经将某个TaskExecutor上的某个Slot分配给你了，
+     *      这个时候，这个Slot的状态就变成了pending
+     * 然后ResourceManager也会发送RPC请求给TaskExecutor，告诉它已经把它的某个Slot分配给了谁
+     * 从节点接收到消息之后，首先完成Slot的分配（生成allocationID），然后去向JobMaster注册Slot。
+     *      完成之后PendingSlotRequest =》 CompletedSlotRequest
+     *
+     */
     private void updateSlotState(
             TaskManagerSlot slot,
             TaskManagerRegistration taskManagerRegistration,
@@ -1438,20 +1468,29 @@ public class SlotManagerImpl implements SlotManager {
         if (!pendingSlotRequests.isEmpty()) {
             long currentTime = System.currentTimeMillis();
 
+            // 获取所有的pendingSlotRequests
             Iterator<Map.Entry<AllocationID, PendingSlotRequest>> slotRequestIterator =
                     pendingSlotRequests.entrySet().iterator();
 
+            // 遍历，看谁超时了
             while (slotRequestIterator.hasNext()) {
                 PendingSlotRequest slotRequest = slotRequestIterator.next().getValue();
 
                 if (currentTime - slotRequest.getCreationTimestamp()
                         >= slotRequestTimeout.toMilliseconds()) {
+                    // 将超时的request移除
                     slotRequestIterator.remove();
 
+                    /**
+                     * Assigned
+                     * 这个Slot已经被ResourceManager分配给了某个Job。但是现在这个slot所属的TaskManager还不知道
+                     * 取消这个slot的Assigned状态
+                     */
                     if (slotRequest.isAssigned()) {
                         cancelPendingSlotRequest(slotRequest);
                     }
 
+                    // 通知失败
                     resourceActions.notifyAllocationFailure(
                             slotRequest.getJobId(),
                             slotRequest.getAllocationId(),

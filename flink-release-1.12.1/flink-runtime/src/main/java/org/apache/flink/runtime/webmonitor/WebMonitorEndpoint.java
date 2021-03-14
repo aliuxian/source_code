@@ -866,7 +866,18 @@ public class WebMonitorEndpoint<T extends RestfulGateway> extends RestServerEndp
 
     @Override
     public void startInternal() throws Exception {
+
+        /**
+         * 进行选举，
+         * 选举成功  =》 LeaderContender的  isLeader方法
+         * 选举失败                        notLeader方法
+         * 在 1.11 的基础上做了一层封装，选举逻辑没有改变
+         *
+         * leaderElectionService 是 DefaultLeaderElectionService
+         */
         leaderElectionService.start(this);
+
+
         startExecutionGraphCacheCleanupTask();
 
         if (hasWebUI) {
@@ -932,6 +943,9 @@ public class WebMonitorEndpoint<T extends RestfulGateway> extends RestServerEndp
                 "{} was granted leadership with leaderSessionID={}",
                 getRestBaseUrl(),
                 leaderSessionID);
+        /**
+         * 确认Leader信息，将信息写到zk
+         */
         leaderElectionService.confirmLeadership(leaderSessionID, getRestBaseUrl());
     }
 

@@ -115,8 +115,12 @@ public class DefaultDispatcherResourceManagerComponentFactory
             FatalErrorHandler fatalErrorHandler)
             throws Exception {
 
+        // 监听dispatcher
         LeaderRetrievalService dispatcherLeaderRetrievalService = null;
+        // 监听resourceManager
         LeaderRetrievalService resourceManagerRetrievalService = null;
+
+
         WebMonitorEndpoint<?> webMonitorEndpoint = null;
         ResourceManager<?> resourceManager = null;
         DispatcherRunner dispatcherRunner = null;
@@ -179,14 +183,29 @@ public class DefaultDispatcherResourceManagerComponentFactory
             log.debug("Starting Dispatcher REST endpoint.");
             /**
              * biglau
-             * 启动webMonitorEndpoint
+             * 启动webMonitorEndpoint：
+             * 1. 创建一堆handler
+             * 2. 创建一个netty服务端，并注册这些handler
+             * 3. 创建一个DefaultLeaderElectionService 进行选举：
+             *          所谓选举就是 进行端口绑定，然后将绑定好的地址信息，sessionId（与zk的session）写到zk
+             * 创建好了之后就是等待client调用rest请求，然后分配给相应的handler进行处理
              */
             webMonitorEndpoint.start();
 
             final String hostname = RpcUtils.getHostname(rpcService);
 
             /**
+             * biglau
              * 创建resourceManager
+             * 1. resourcemanager是一个rpcEndpoint，当这个对象构建好了，执行onStart方法
+             * 2. 也是一个LeaderContender  也会执行竞选
+             * 3. 启动resourcemanager的一些service：
+             *          两个心跳服务：
+             *              从节点和主节点之间的心跳
+             *              Job的主控程序与主程序之间的心跳
+             *          两个定时服务：
+             *              TaskManager的超时服务
+             *              Slot的超时服务
              */
             resourceManager =
                     resourceManagerFactory.createResourceManager(
@@ -224,7 +243,7 @@ public class DefaultDispatcherResourceManagerComponentFactory
 
             log.debug("Starting Dispatcher.");
             /**
-             * 创建dispatcherRunner，并在内部启动
+             * 创建dispatcherRunner，并在内部启动(调用start方法)
              */
             dispatcherRunner =
                     dispatcherRunnerFactory.createDispatcherRunner(
@@ -238,7 +257,8 @@ public class DefaultDispatcherResourceManagerComponentFactory
             log.debug("Starting ResourceManager.");
             /**
              * biglau
-             * 启动resourceManager
+             * 启动resourceManager：
+             * 内部只是给自己发了一条消息
              */
             resourceManager.start();
 

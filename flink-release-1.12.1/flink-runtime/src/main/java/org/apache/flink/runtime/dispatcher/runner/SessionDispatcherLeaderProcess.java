@@ -72,8 +72,15 @@ public class SessionDispatcherLeaderProcess extends AbstractDispatcherLeaderProc
 
     @Override
     protected void onStart() {
+        /**
+         * 启动Dispatcher服务
+         */
         startServices();
 
+        /**
+         * recoverJobsAsync()  恢复Job
+         * createDispatcherIfRunning  启动Job
+         */
         onGoingRecoveryOperation =
                 recoverJobsAsync()
                         .thenAccept(this::createDispatcherIfRunning)
@@ -93,6 +100,9 @@ public class SessionDispatcherLeaderProcess extends AbstractDispatcherLeaderProc
     }
 
     private void createDispatcherIfRunning(Collection<JobGraph> jobGraphs) {
+        /**
+         * createDispatcher(jobGraphs)
+         */
         runIfStateIs(State.RUNNING, () -> createDispatcher(jobGraphs));
     }
 

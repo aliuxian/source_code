@@ -94,6 +94,14 @@ public class StateBackendLoader {
         checkNotNull(config, "config");
         checkNotNull(classLoader, "classLoader");
 
+        /**
+         * 获取配置的stateBackend
+         *   三种：
+         *        jobmanager（MemoryStateBackend）
+         *        filesystem （FsStateBackend）
+         *        rocksdb     （RocksDBStateBackend）
+         *
+         */
         final String backendName = config.get(CheckpointingOptions.STATE_BACKEND);
         if (backendName == null) {
             return null;
@@ -102,7 +110,11 @@ public class StateBackendLoader {
         // by default the factory class is the backend name
         String factoryClassName = backendName;
 
+        /**
+         * 创建对应的Backend
+         */
         switch (backendName.toLowerCase()) {
+                // jobmanager
             case MEMORY_STATE_BACKEND_NAME:
                 MemoryStateBackend memBackend =
                         new MemoryStateBackendFactory().createFromConfig(config, classLoader);
@@ -119,6 +131,7 @@ public class StateBackendLoader {
                 }
                 return memBackend;
 
+                // filesystem
             case FS_STATE_BACKEND_NAME:
                 FsStateBackend fsBackend =
                         new FsStateBackendFactory().createFromConfig(config, classLoader);
@@ -129,6 +142,7 @@ public class StateBackendLoader {
                 }
                 return fsBackend;
 
+                // rocksdb
             case ROCKSDB_STATE_BACKEND_NAME:
                 factoryClassName =
                         "org.apache.flink.contrib.streaming.state.RocksDBStateBackendFactory";

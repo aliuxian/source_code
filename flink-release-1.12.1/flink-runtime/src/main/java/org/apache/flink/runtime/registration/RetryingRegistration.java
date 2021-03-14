@@ -129,6 +129,9 @@ public abstract class RetryingRegistration<
      */
     @SuppressWarnings("unchecked")
     public void startRegistration() {
+        /**
+         * 主动取消了
+         */
         if (canceled) {
             // we already got canceled
             return;
@@ -138,6 +141,16 @@ public abstract class RetryingRegistration<
             // trigger resolution of the target address to a callable gateway
             final CompletableFuture<G> rpcGatewayFuture;
 
+            /**
+             * TaskExecutor 去连接 ResourceManager  并获取 ResourceManager的代理
+             * 异步编程的方式：
+             *
+             * 注册结果会封装在：rpcGatewayFuture中
+             *
+             *
+             *
+             * rpcGateway就是代理
+             */
             if (FencedRpcGateway.class.isAssignableFrom(targetType)) {
                 rpcGatewayFuture =
                         (CompletableFuture<G>)
@@ -149,8 +162,13 @@ public abstract class RetryingRegistration<
                 rpcGatewayFuture = rpcService.connect(targetAddress, targetType);
             }
 
+            /**
+             * 连接成功之后就会去注册
+             */
             // upon success, start the registration attempts
             CompletableFuture<Void> rpcGatewayAcceptFuture =
+                    // 异步的方式获取到连接的结果
+                    // 连接成功，进行注册
                     rpcGatewayFuture.thenAcceptAsync(
                             (G rpcGateway) -> {
                                 log.info("Resolved {} address, beginning registration", targetName);
@@ -162,9 +180,14 @@ public abstract class RetryingRegistration<
                             },
                             rpcService.getExecutor());
 
+            /**
+             * 异步的方式
+             * 注册失败
+             */
             // upon failure, retry, unless this is cancelled
             rpcGatewayAcceptFuture.whenCompleteAsync(
                     (Void v, Throwable failure) -> {
+                        // 失败并且不是主动取消的
                         if (failure != null && !canceled) {
                             final Throwable strippedFailure =
                                     ExceptionUtils.stripCompletionException(failure);
@@ -184,6 +207,9 @@ public abstract class RetryingRegistration<
                                         strippedFailure.getMessage());
                             }
 
+                            /**
+                             * 10s之后重新尝试注册
+                             */
                             startRegistrationLater(
                                     retryingRegistrationConfiguration.getErrorDelayMillis());
                         }
@@ -212,6 +238,12 @@ public abstract class RetryingRegistration<
                     targetName,
                     attempt,
                     timeoutMillis);
+            /**
+             * 真正的注册，
+             * 异步的方式
+             *
+             * 如果注册成功： registrationFuture =  TaskExecutorRegistrationSuccess
+             */
             CompletableFuture<RegistrationResponse> registrationFuture =
                     invokeRegistration(gateway, fencingToken, timeoutMillis);
 
@@ -220,11 +252,22 @@ public abstract class RetryingRegistration<
                     registrationFuture.thenAcceptAsync(
                             (RegistrationResponse result) -> {
                                 if (!isCanceled()) {
+                                    /**
+                                     * 注册成功
+                                     * 通知TaskExecutor去做相应的回调
+                                     */
                                     if (result instanceof RegistrationResponse.Success) {
                                         // registration successful!
                                         S success = (S) result;
+                                        /**
+                                         *  这里的completionFuture处理好之后
+                                         *  之前创建好注册对象的那个地方的回调就会被处理
+                                         */
                                         completionFuture.complete(Tuple2.of(gateway, success));
                                     } else {
+                                        /**
+                                         * 注册失败  被拒绝或者为知原因
+                                         */
                                         // registration refused or unknown
                                         if (result instanceof RegistrationResponse.Decline) {
                                             RegistrationResponse.Decline decline =
@@ -243,6 +286,9 @@ public abstract class RetryingRegistration<
                                                 "Pausing and re-attempting registration in {} ms",
                                                 retryingRegistrationConfiguration
                                                         .getRefusedDelayMillis());
+                                        /**
+                                         * 延迟注册
+                                         */
                                         registerLater(
                                                 gateway,
                                                 1,
@@ -255,10 +301,15 @@ public abstract class RetryingRegistration<
                             },
                             rpcService.getExecutor());
 
+            /**
+             * 注册结果
+             */
             // upon failure, retry
             registrationAcceptFuture.whenCompleteAsync(
                     (Void v, Throwable failure) -> {
                         if (failure != null && !isCanceled()) {
+
+                            // 因为注册超时了
                             if (ExceptionUtils.stripCompletionException(failure)
                                     instanceof TimeoutException) {
                                 // we simply have not received a response in time. maybe the timeout
@@ -275,13 +326,22 @@ public abstract class RetryingRegistration<
                                             timeoutMillis);
                                 }
 
+                                /**
+                                 * 每超时一次，超时时间翻倍
+                                 * 但是不能超过最大的超时时间
+                                 */
                                 long newTimeoutMillis =
                                         Math.min(
                                                 2 * timeoutMillis,
                                                 retryingRegistrationConfiguration
                                                         .getMaxRegistrationTimeoutMillis());
+                                /**
+                                 *  因为注册超时  ==》 attempt + 1
+                                 */
                                 register(gateway, attempt + 1, newTimeoutMillis);
-                            } else {
+                            }
+                            // 其它原因注册失败
+                            else {
                                 // a serious failure occurred. we still should not give up, but keep
                                 // trying
                                 log.error(
@@ -292,6 +352,9 @@ public abstract class RetryingRegistration<
                                         "Pausing and re-attempting registration in {} ms",
                                         retryingRegistrationConfiguration.getErrorDelayMillis());
 
+                                /**
+                                 * 延迟注册
+                                 */
                                 registerLater(
                                         gateway,
                                         1,

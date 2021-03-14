@@ -99,9 +99,15 @@ public abstract class RegisteredRpcConnection<
                 !isConnected() && pendingRegistration == null,
                 "The RPC connection is already started");
 
+        /***
+         * 创建注册对象  ResourceManagerRegistration
+         */
         final RetryingRegistration<F, G, S> newRegistration = createNewRegistration();
 
         if (REGISTRATION_UPDATER.compareAndSet(this, null, newRegistration)) {
+            /**
+             * 开始注册
+             */
             newRegistration.startRegistration();
         } else {
             // concurrent start operation
@@ -230,10 +236,18 @@ public abstract class RegisteredRpcConnection<
     // ------------------------------------------------------------------------
 
     private RetryingRegistration<F, G, S> createNewRegistration() {
+
+        /**
+         * generateRegistration() 生成注册对象
+         */
         RetryingRegistration<F, G, S> newRegistration = checkNotNull(generateRegistration());
 
         CompletableFuture<Tuple2<G, S>> future = newRegistration.getFuture();
 
+        /**
+         * 开始注册的方法在外层方法中，这里是异步的，所以即使执行到这的时候还没有开始注册也无所谓。
+         * 注册成功或失败的回调，
+         */
         future.whenCompleteAsync(
                 (Tuple2<G, S> result, Throwable failure) -> {
                     if (failure != null) {
@@ -247,10 +261,17 @@ public abstract class RegisteredRpcConnection<
                         } else {
                             // this future should only ever fail if there is a bug, not if the
                             // registration is declined
+                            /**
+                             * 注册失败，并且不是我们主动取消的
+                             * 会直接关闭JVM
+                             */
                             onRegistrationFailure(failure);
                         }
                     } else {
                         targetGateway = result.f0;
+                        /**
+                         * 注册成功
+                         */
                         onRegistrationSuccess(result.f1);
                     }
                 },

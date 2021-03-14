@@ -129,6 +129,9 @@ public class HeartbeatManagerImpl<I, O> implements HeartbeatManager<I, O> {
                         "The target with resource ID {} is already been monitored.",
                         resourceID.getStringWithMetadata());
             } else {
+                /**
+                 * HeartbeatTarget 封装在了HeartbeatMonitor 中
+                 */
                 HeartbeatMonitor<O> heartbeatMonitor =
                         heartbeatMonitorFactory.createHeartbeatMonitor(
                                 resourceID,
@@ -137,6 +140,11 @@ public class HeartbeatManagerImpl<I, O> implements HeartbeatManager<I, O> {
                                 heartbeatListener,
                                 heartbeatTimeoutIntervalMs);
 
+                /**
+                 * 添加到了targets的map中
+                 * 在创建ResourceManager的时候，启动了一个定时的心跳服务，在这之后，
+                 * 主节点就会给targets里面的从节点发送心跳信息
+                 */
                 heartbeatTargets.put(resourceID, heartbeatMonitor);
 
                 // check if we have stopped in the meantime (concurrent stop operation)
@@ -207,6 +215,9 @@ public class HeartbeatManagerImpl<I, O> implements HeartbeatManager<I, O> {
         if (!stopped) {
             log.debug("Received heartbeat request from {}.", requestOrigin);
 
+            /**
+             * 回复心跳，并不是回复给主节点
+             */
             final HeartbeatTarget<O> heartbeatTarget = reportHeartbeat(requestOrigin);
 
             if (heartbeatTarget != null) {
@@ -214,7 +225,15 @@ public class HeartbeatManagerImpl<I, O> implements HeartbeatManager<I, O> {
                     heartbeatListener.reportPayload(requestOrigin, heartbeatPayload);
                 }
 
+                /**
+                 * 现在在从节点上，
+                 * 所以heartbeatTarget是在TaskExecutor端创建的，但是它代表的是ResourceManager
+                 */
                 heartbeatTarget.receiveHeartbeat(
+                        /**
+                         * heartbeatListener  这里的listener是  在TaskExecutor中的ResourceManagerHeartbeatListener
+                         *
+                         */
                         getOwnResourceID(), heartbeatListener.retrievePayload(requestOrigin));
             }
         }
@@ -223,6 +242,9 @@ public class HeartbeatManagerImpl<I, O> implements HeartbeatManager<I, O> {
     HeartbeatTarget<O> reportHeartbeat(ResourceID resourceID) {
         if (heartbeatTargets.containsKey(resourceID)) {
             HeartbeatMonitor<O> heartbeatMonitor = heartbeatTargets.get(resourceID);
+            /**
+             * 当前是在从节点 所以 heartbeatMonitor代表的是主节点
+             */
             heartbeatMonitor.reportHeartbeat();
 
             return heartbeatMonitor.getHeartbeatTarget();

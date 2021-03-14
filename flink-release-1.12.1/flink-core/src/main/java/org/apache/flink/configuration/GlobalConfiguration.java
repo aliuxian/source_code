@@ -132,6 +132,9 @@ public final class GlobalConfiguration {
                             + ") does not exist.");
         }
 
+        /**
+         * 加载yaml文件
+         */
         Configuration configuration = loadYAMLResource(yamlConfigFile);
 
         if (dynamicProperties != null) {
@@ -177,6 +180,9 @@ public final class GlobalConfiguration {
                 String[] comments = line.split("#", 2);
                 String conf = comments[0].trim();
 
+                /**
+                 * :后面必须要有空格
+                 */
                 // 2. get key and value
                 if (conf.length() > 0) {
                     String[] kv = conf.split(": ", 2);

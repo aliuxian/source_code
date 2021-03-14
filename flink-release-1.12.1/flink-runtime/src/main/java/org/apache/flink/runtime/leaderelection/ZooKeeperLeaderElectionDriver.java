@@ -106,6 +106,9 @@ public class ZooKeeperLeaderElectionDriver
         this.fatalErrorHandler = checkNotNull(fatalErrorHandler);
         this.leaderContenderDescription = checkNotNull(leaderContenderDescription);
 
+        /**
+         * LeaderLatch 就是一种选择的实现
+         */
         leaderLatch = new LeaderLatch(client, checkNotNull(latchPath));
         cache = new NodeCache(client, leaderPath);
 
@@ -113,7 +116,15 @@ public class ZooKeeperLeaderElectionDriver
 
         running = true;
 
+        /**
+         * 监听器：ZookeeperLeaderElectionDriver  选举成功回调this的isLeader方法
+         */
         leaderLatch.addListener(this);
+        /**
+         * 开始真正的选举
+         * 选举成功就会调用  isLeader()方法
+         * 因为WebMonitorEndpoint只会启动一个，所以正常都是成功的
+         */
         leaderLatch.start();
 
         cache.getListenable().addListener(this);
@@ -163,6 +174,9 @@ public class ZooKeeperLeaderElectionDriver
 
     @Override
     public void isLeader() {
+        /**
+         * 赋予领导权
+         */
         leaderElectionEventHandler.onGrantLeadership();
     }
 

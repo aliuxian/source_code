@@ -89,6 +89,9 @@ public class DefaultJobMasterServiceFactory implements JobMasterServiceFactory {
             long initializationTimestamp)
             throws Exception {
 
+        /**
+         * 生成和启动JobMaster
+         */
         return new JobMaster(
                 rpcService,
                 jobMasterConfiguration,

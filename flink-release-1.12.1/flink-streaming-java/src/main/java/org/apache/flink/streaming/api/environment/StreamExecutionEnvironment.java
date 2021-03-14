@@ -225,6 +225,9 @@ public class StreamExecutionEnvironment {
             final Configuration configuration,
             final ClassLoader userClassloader) {
         this.executorServiceLoader = checkNotNull(executorServiceLoader);
+        /**
+         * 调用env的set方法，实际就是调用configuration的set方法，做了一层封装而已
+         */
         this.configuration = new Configuration(checkNotNull(configuration));
         this.userClassloader =
                 userClassloader == null ? getClass().getClassLoader() : userClassloader;
@@ -240,6 +243,12 @@ public class StreamExecutionEnvironment {
         // Given this, it is safe to overwrite the execution config default values here because all
         // other ways assume
         // that the env is already instantiated so they will overwrite the value passed here.
+        /**
+         * 各种组件配置，
+         * 最重要的两件事：
+         * 初始化stateBackend
+         * checkpoint相关参数
+         */
         this.configure(this.configuration, this.userClassloader);
     }
 
@@ -791,11 +800,19 @@ public class StreamExecutionEnvironment {
      */
     @PublicEvolving
     public void configure(ReadableConfig configuration, ClassLoader classLoader) {
+        /**
+         * 时间类型
+         */
         configuration
                 .getOptional(StreamPipelineOptions.TIME_CHARACTERISTIC)
                 .ifPresent(this::setStreamTimeCharacteristic);
+        /**
+         * stateBackend
+         */
         Optional.ofNullable(loadStateBackend(configuration, classLoader))
                 .ifPresent(this::setStateBackend);
+
+
         configuration
                 .getOptional(PipelineOptions.OPERATOR_CHAINING)
                 .ifPresent(c -> this.isChainingEnabled = c);
@@ -833,6 +850,14 @@ public class StreamExecutionEnvironment {
                 .getOptional(PipelineOptions.NAME)
                 .ifPresent(jobName -> this.getConfiguration().set(PipelineOptions.NAME, jobName));
         config.configure(configuration, classLoader);
+        /**
+         * 拿到所有和checkpoint有关的配置
+         * checkpoint的执行是需要使用CheckpointConfig这个对象的
+         *
+         * 解析算子构造StreamGraph的时候会将CheckpointConfig传递给StreamGraph
+         *
+         * 构造JobGraph的时候继续将CheckpointConfig传递给JobGraph
+         */
         checkpointCfg.configure(configuration);
     }
 
@@ -851,6 +876,9 @@ public class StreamExecutionEnvironment {
 
     private StateBackend loadStateBackend(ReadableConfig configuration, ClassLoader classLoader) {
         try {
+            /**
+             * 从
+             */
             return StateBackendLoader.loadStateBackendFromConfig(configuration, classLoader, null);
         } catch (DynamicCodeLoadingException | IOException e) {
             throw new WrappingRuntimeException(e);
@@ -1190,6 +1218,11 @@ public class StreamExecutionEnvironment {
         TypeInformation<String> typeInfo = BasicTypeInfo.STRING_TYPE_INFO;
         format.setCharsetName(charsetName);
 
+        /**
+         * FileProcessingMode  两种模式
+         *          只读一次
+         *          持续的读
+         */
         return readFile(format, filePath, FileProcessingMode.PROCESS_ONCE, -1, typeInfo);
     }
 
@@ -1586,6 +1619,9 @@ public class StreamExecutionEnvironment {
                         + ContinuousFileMonitoringFunction.MIN_MONITORING_INTERVAL
                         + " ms.");
 
+        /**
+         * 封装一个Function
+         */
         ContinuousFileMonitoringFunction<OUT> monitoringFunction =
                 new ContinuousFileMonitoringFunction<>(
                         inputFormat, monitoringMode, getParallelism(), interval);
@@ -1598,8 +1634,15 @@ public class StreamExecutionEnvironment {
                         ? Boundedness.BOUNDED
                         : Boundedness.CONTINUOUS_UNBOUNDED;
 
+        /**
+         * 将Function =》 StreamOperator =》 Transformation
+         */
         SingleOutputStreamOperator<OUT> source =
+                // StreamOperator，，会返回一个DataStream
                 addSource(monitoringFunction, sourceName, null, boundedness)
+                        /**
+                         * 封装Transformation
+                         */
                         .transform("Split Reader: " + sourceName, typeInfo, factory);
 
         return new DataStreamSource<>(source);
@@ -1684,7 +1727,18 @@ public class StreamExecutionEnvironment {
 
         clean(function);
 
+        /**
+         * StreamSource的成员变量  chainingStrategy = ChainingStrategy.HEAD
+         * StreamSource本身StreamOperator
+         * StreamSource包装了Function，由成员变量 userFunction持有
+         *
+         * StreamSource 会作为一个成员变量 封装为一个Transformation
+         * 所以三者关系为：Function =》 StreamOperator =》 Transformation
+         */
         final StreamSource<OUT, ?> sourceOperator = new StreamSource<>(function);
+        /**
+         * 返回一个DataStreamSource（父类是DataStream）
+         */
         return new DataStreamSource<>(
                 this, resolvedTypeInfo, sourceOperator, isParallel, sourceName, boundedness);
     }
@@ -1779,6 +1833,10 @@ public class StreamExecutionEnvironment {
     public JobExecutionResult execute(String jobName) throws Exception {
         Preconditions.checkNotNull(jobName, "Streaming Job name should not be null.");
 
+        /**
+         * getStreamGraph(jobName)  生成StreamGraph
+         * 提交生成StreamGraph
+         */
         return execute(getStreamGraph(jobName));
     }
 
@@ -1793,11 +1851,19 @@ public class StreamExecutionEnvironment {
      */
     @Internal
     public JobExecutionResult execute(StreamGraph streamGraph) throws Exception {
+
+        /**
+         * 异步提交StreamGraph
+         * ！！！！
+         */
         final JobClient jobClient = executeAsync(streamGraph);
 
         try {
             final JobExecutionResult jobExecutionResult;
 
+            /**
+             * 通过get方法阻塞
+             */
             if (configuration.getBoolean(DeploymentOptions.ATTACHED)) {
                 jobExecutionResult = jobClient.getJobExecutionResult().get();
             } else {
@@ -1899,6 +1965,12 @@ public class StreamExecutionEnvironment {
                 "Cannot find compatible factory for specified execution.target (=%s)",
                 configuration.get(DeploymentOptions.TARGET));
 
+        /**
+         * per-job 模式下 execute方式是 AbstractJobClusterExecutor实现的
+         * per-job模式下，启动一个小集群，作业执行完就销毁，适合大作业
+         * session模式下 execute方式是 AbstractSessionClusterExecutor实现的
+         * 在session模式下 不区别yarn 和 standalone，
+         */
         CompletableFuture<JobClient> jobClientFuture =
                 executorFactory
                         .getExecutor(configuration)
@@ -1940,6 +2012,9 @@ public class StreamExecutionEnvironment {
      */
     @Internal
     public StreamGraph getStreamGraph(String jobName) {
+        /**
+         * biglau
+         */
         return getStreamGraph(jobName, true);
     }
 
@@ -1955,6 +2030,11 @@ public class StreamExecutionEnvironment {
      */
     @Internal
     public StreamGraph getStreamGraph(String jobName, boolean clearTransformations) {
+        /**
+         *   getStreamGraphGenerator() =>  StreamGraphGenerator
+         *
+         *   调用StreamGraphGenerator的generate()方法生成StreamGraph
+         */
         StreamGraph streamGraph = getStreamGraphGenerator().setJobName(jobName).generate();
         if (clearTransformations) {
             this.transformations.clear();
@@ -2048,6 +2128,9 @@ public class StreamExecutionEnvironment {
      */
     public static StreamExecutionEnvironment getExecutionEnvironment(Configuration configuration) {
         return Utils.resolveFactory(threadLocalContextEnvironmentFactory, contextEnvironmentFactory)
+                /**
+                 * 获取StreamExecutionEnvironment
+                 */
                 .map(factory -> factory.createExecutionEnvironment(configuration))
                 .orElseGet(() -> StreamExecutionEnvironment.createLocalEnvironment(configuration));
     }

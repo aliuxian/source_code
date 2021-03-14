@@ -56,6 +56,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
+/**
+ * 在TaskExecutor中负责Slot相关的操作
+ */
+
 /** Default implementation of {@link TaskSlotTable}. */
 public class TaskSlotTableImpl<T extends TaskSlotPayload> implements TaskSlotTable<T> {
 
@@ -65,6 +69,10 @@ public class TaskSlotTableImpl<T extends TaskSlotPayload> implements TaskSlotTab
      * Number of slots in static slot allocation. If slot is requested with an index, the requested
      * index must within the range of [0, numberSlots). When generating slot report, we should
      * always generate slots with index in [0, numberSlots) even the slot does not exist.
+     *
+     *
+     * slot的 index 属于 [0,numSlots)
+     *
      */
     private final int numberSlots;
 
@@ -77,9 +85,18 @@ public class TaskSlotTableImpl<T extends TaskSlotPayload> implements TaskSlotTab
     /** Timer service used to time out allocated slots. */
     private final TimerService<AllocationID> timerService;
 
+    /**
+     * 重要
+     * 当从节点向ResourceManager注册成功之后，就会向resourceManager汇报slot的信息  =。 SlotReport
+     * 所有的Slot
+     */
     /** The list of all task slots. */
     private final Map<Integer, TaskSlot<T>> taskSlots;
 
+    /**
+     * 重要
+     * 被分配掉的Slot
+     */
     /** Mapping from allocation id to task slot. */
     private final Map<AllocationID, TaskSlot<T>> allocatedSlots;
 
@@ -156,6 +173,9 @@ public class TaskSlotTableImpl<T extends TaskSlotPayload> implements TaskSlotTab
 
         timerService.start(this);
 
+        /**
+         * 把状态标识为RUNNING
+         */
         state = State.RUNNING;
     }
 
@@ -225,14 +245,26 @@ public class TaskSlotTableImpl<T extends TaskSlotPayload> implements TaskSlotTab
 
     @Override
     public SlotReport createSlotReport(ResourceID resourceId) {
+
+        /**
+         * SlotStatus容器
+         */
         List<SlotStatus> slotStatuses = new ArrayList<>();
 
+        /**
+         * 遍历所有的Slot
+         */
         for (int i = 0; i < numberSlots; i++) {
             SlotID slotId = new SlotID(resourceId, i);
             SlotStatus slotStatus;
+            /**
+             * 为每一个Slot创建SlotStatus对象
+             */
             if (taskSlots.containsKey(i)) {
+                /**
+                 * 已经 被分配的Slot
+                 */
                 TaskSlot<T> taskSlot = taskSlots.get(i);
-
                 slotStatus =
                         new SlotStatus(
                                 slotId,
@@ -240,12 +272,19 @@ public class TaskSlotTableImpl<T extends TaskSlotPayload> implements TaskSlotTab
                                 taskSlot.getJobId(),
                                 taskSlot.getAllocationId());
             } else {
+                /**
+                 * 还没被分配的Slot
+                 */
                 slotStatus = new SlotStatus(slotId, defaultSlotResourceProfile, null, null);
             }
 
             slotStatuses.add(slotStatus);
         }
 
+        /**
+         * 查看已经被分配的Slot，有没有index<0的，有的话创建SlotStatus，
+         * 因为上面的循环只处理index在[0, numberSlots)中的
+         */
         for (TaskSlot<T> taskSlot : allocatedSlots.values()) {
             if (taskSlot.getIndex() < 0) {
                 SlotID slotID = SlotID.generateDynamicSlotID(resourceId);
@@ -259,6 +298,9 @@ public class TaskSlotTableImpl<T extends TaskSlotPayload> implements TaskSlotTab
             }
         }
 
+        /**
+         * 生成SlotReport
+         */
         final SlotReport slotReport = new SlotReport(slotStatuses);
 
         return slotReport;

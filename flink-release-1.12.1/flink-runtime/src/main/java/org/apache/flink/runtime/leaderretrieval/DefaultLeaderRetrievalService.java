@@ -91,7 +91,16 @@ public class DefaultLeaderRetrievalService
                 "DefaultLeaderRetrievalService can " + "only be started once.");
 
         synchronized (lock) {
+
+            // ！！
             leaderListener = listener;
+
+            /**
+             * 创建LeaderRetrievalDriver对象
+             * 1.12 开始做的封装，以前是没有的，直接调用的NodeCache的start方法，执行监听
+             *
+             * 一切需要去zk中获取信息的都被封装成了LeaderRetrievalDriver
+             */
             leaderRetrievalDriver =
                     leaderRetrievalDriverFactory.createLeaderRetrievalDriver(
                             this, new LeaderRetrievalFatalErrorHandler());

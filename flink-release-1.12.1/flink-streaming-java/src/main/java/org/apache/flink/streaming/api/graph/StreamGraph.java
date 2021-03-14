@@ -256,6 +256,9 @@ public class StreamGraph implements Pipeline {
             TypeInformation<IN> inTypeInfo,
             TypeInformation<OUT> outTypeInfo,
             String operatorName) {
+        /**
+         *  最后一个参数  SourceOperatorStreamTask.class  很重要
+         */
         addOperator(
                 vertexID,
                 slotSharingGroup,
@@ -318,6 +321,10 @@ public class StreamGraph implements Pipeline {
             TypeInformation<IN> inTypeInfo,
             TypeInformation<OUT> outTypeInfo,
             String operatorName) {
+        /**
+         * invokableClass  Transformation的类别，后面创建相应的Task类型
+         * SourceStreamTask / OneInputStreamTask
+         */
         Class<? extends AbstractInvokable> invokableClass =
                 operatorFactory.isStreamSource()
                         ? SourceStreamTask.class
@@ -343,6 +350,9 @@ public class StreamGraph implements Pipeline {
             String operatorName,
             Class<? extends AbstractInvokable> invokableClass) {
 
+        /**
+         *
+         */
         addNode(
                 vertexID,
                 slotSharingGroup,
@@ -447,6 +457,11 @@ public class StreamGraph implements Pipeline {
             throw new RuntimeException("Duplicate vertexID " + vertexID);
         }
 
+        /**
+         * 创建Node
+         *
+         * ！！！！！vertexClass！！！！
+         */
         StreamNode vertex =
                 new StreamNode(
                         vertexID,
@@ -456,6 +471,12 @@ public class StreamGraph implements Pipeline {
                         operatorName,
                         vertexClass);
 
+        /**
+         * 将StreamNode添加到StreamGraph中
+         * UserFunction =》 StreamOperator =》 Transformation =》 StreamNode
+         *
+         * 构建StreamNode的过程中会指定InvokableClass
+         */
         streamNodes.put(vertexID, vertex);
 
         return vertex;
@@ -588,6 +609,9 @@ public class StreamGraph implements Pipeline {
                     outputTag,
                     shuffleMode);
         } else {
+            /**
+             * 获取上下游的StreamNode
+             */
             StreamNode upstreamNode = getStreamNode(upStreamVertexID);
             StreamNode downstreamNode = getStreamNode(downStreamVertexID);
 
@@ -595,8 +619,14 @@ public class StreamGraph implements Pipeline {
             // operator matches use forward partitioning, use rebalance otherwise.
             if (partitioner == null
                     && upstreamNode.getParallelism() == downstreamNode.getParallelism()) {
+                /**
+                 * 上下游并行度相同
+                 */
                 partitioner = new ForwardPartitioner<Object>();
             } else if (partitioner == null) {
+                /**
+                 * 默认分区规则
+                 */
                 partitioner = new RebalancePartitioner<Object>();
             }
 
@@ -620,6 +650,9 @@ public class StreamGraph implements Pipeline {
                 shuffleMode = ShuffleMode.UNDEFINED;
             }
 
+            /**
+             * 创建StreamEdge对象
+             */
             StreamEdge edge =
                     new StreamEdge(
                             upstreamNode,
@@ -629,6 +662,10 @@ public class StreamGraph implements Pipeline {
                             outputTag,
                             shuffleMode);
 
+            /**
+             * 对于上游节点来说，当前这条边为出边
+             * 对于下游节点来说，当前这条边为入边
+             */
             getStreamNode(edge.getSourceId()).addOutEdge(edge);
             getStreamNode(edge.getTargetId()).addInEdge(edge);
         }
@@ -909,6 +946,9 @@ public class StreamGraph implements Pipeline {
 
     /** Gets the assembled {@link JobGraph} with a specified {@link JobID}. */
     public JobGraph getJobGraph(@Nullable JobID jobID) {
+        /**
+         *
+         */
         return StreamingJobGraphGenerator.createJobGraph(this, jobID);
     }
 

@@ -54,18 +54,31 @@ public class WordCount {
         // Checking input parameters
         final MultipleParameterTool params = MultipleParameterTool.fromArgs(args);
 
+        /**
+         * 一、
+         *
+         * 比较重要的两件事：
+         *  创建StateBackend
+         *  获取checkpoint的配置
+         */
         // set up the execution environment
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
         // make parameters available in the web interface
         env.getConfig().setGlobalJobParameters(params);
 
+        /**
+         * 二、
+         */
         // get input data
         DataStream<String> text = null;
         if (params.has("input")) {
             // union all the inputs from text files
             for (String input : params.getMultiParameterRequired("input")) {
                 if (text == null) {
+                    /**
+                     *
+                     */
                     text = env.readTextFile(input);
                 } else {
                     text = text.union(env.readTextFile(input));
@@ -79,6 +92,9 @@ public class WordCount {
             text = env.fromElements(WordCountData.WORDS);
         }
 
+        /**
+         * 三、Function =》 Operator  =》 Transformation
+         */
         DataStream<Tuple2<String, Integer>> counts =
                 // split up the lines in pairs (2-tuples) containing: (word,1)
                 text.flatMap(new Tokenizer())
@@ -86,6 +102,9 @@ public class WordCount {
                         .keyBy(value -> value.f0)
                         .sum(1);
 
+        /**
+         * 四、
+         */
         // emit result
         if (params.has("output")) {
             counts.writeAsText(params.get("output"));
@@ -93,6 +112,27 @@ public class WordCount {
             System.out.println("Printing result to stdout. Use --output to specify output path.");
             counts.print();
         }
+
+        /**
+         * 打印StreamGraph和执行计划
+         * String streamingPlanAsJSON = env.getStreamGraph().getStreamingPlanAsJSON();
+         * System.out.println(streamingPlanAsJSON);
+         * String executionPlan = env.getExecutionPlan();
+         * System.out.println(executionPlan);
+         */
+
+
+        /**
+         * 五、提交执行
+         * 1. 生成StreamGraph，代表程序的拓扑图，从用户代码直接生成
+         * 2. 生成JobGraph
+         * 3. 生成一系列的配置
+         * 4. 将JobGraph 以及 配置 提交给flink执行，如果不是local模式，还会将jar文件分发给各个节点
+         *
+         *
+         * env中的configuration保存了所有的配置
+         * env中的transformations保存了所有的算子
+         */
         // execute program
         env.execute("Streaming WordCount");
     }

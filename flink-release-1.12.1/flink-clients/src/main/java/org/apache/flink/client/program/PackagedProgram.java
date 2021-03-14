@@ -210,6 +210,9 @@ public class PackagedProgram {
      * local execution by default.
      */
     public void invokeInteractiveModeForExecution() throws ProgramInvocationException {
+        /**
+         * 我们自己编写程序的main方法
+         */
         callMainMethod(mainClass, args);
     }
 
@@ -317,6 +320,9 @@ public class PackagedProgram {
         }
 
         try {
+            /**
+             * 反射 获取实例
+             */
             mainMethod = entryClass.getMethod("main", String[].class);
         } catch (NoSuchMethodException e) {
             throw new ProgramInvocationException(
@@ -340,6 +346,9 @@ public class PackagedProgram {
         }
 
         try {
+            /**
+             * 执行main方法
+             */
             mainMethod.invoke(null, (Object) args);
         } catch (IllegalArgumentException e) {
             throw new ProgramInvocationException(

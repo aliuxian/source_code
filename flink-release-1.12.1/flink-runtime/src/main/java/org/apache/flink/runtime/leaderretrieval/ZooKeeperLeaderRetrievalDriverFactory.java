@@ -38,6 +38,7 @@ public class ZooKeeperLeaderRetrievalDriverFactory implements LeaderRetrievalDri
     public ZooKeeperLeaderRetrievalDriver createLeaderRetrievalDriver(
             LeaderRetrievalEventHandler leaderEventHandler, FatalErrorHandler fatalErrorHandler)
             throws Exception {
+        //
         return new ZooKeeperLeaderRetrievalDriver(
                 client, retrievalPath, leaderEventHandler, fatalErrorHandler);
     }

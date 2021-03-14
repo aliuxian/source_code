@@ -78,6 +78,9 @@ public final class JobSubmitHandler
         this.configuration = configuration;
     }
 
+    /**
+     * biglau
+     */
     @Override
     protected CompletableFuture<JobSubmitResponseBody> handleRequest(
             @Nonnull HandlerRequest<JobSubmitRequestBody, EmptyMessageParameters> request,
@@ -98,6 +101,9 @@ public final class JobSubmitHandler
                     HttpResponseStatus.BAD_REQUEST);
         }
 
+        /**
+         * 获取请求体
+         */
         final JobSubmitRequestBody requestBody = request.getRequestBody();
 
         if (requestBody.jobGraphFileName == null) {
@@ -108,18 +114,35 @@ public final class JobSubmitHandler
                     HttpResponseStatus.BAD_REQUEST);
         }
 
+        /**
+         * 恢复JobGraph
+         */
         CompletableFuture<JobGraph> jobGraphFuture = loadJobGraph(requestBody, nameToFile);
 
+        /**
+         * 获取程序的jar文件
+         */
         Collection<Path> jarFiles = getJarFilesToUpload(requestBody.jarFileNames, nameToFile);
 
+        /**
+         * 依赖的jar
+         */
         Collection<Tuple2<String, Path>> artifacts =
                 getArtifactFilesToUpload(requestBody.artifactFileNames, nameToFile);
 
+        /**
+         * 上传JobGraph + 程序jar包 + 依赖jar包 到HDFS
+         *
+         *  通过BlobClient 上传到 BlobServer
+         */
         CompletableFuture<JobGraph> finalizedJobGraphFuture =
                 uploadJobGraphFiles(gateway, jobGraphFuture, jarFiles, artifacts, configuration);
 
         CompletableFuture<Acknowledge> jobSubmissionFuture =
                 finalizedJobGraphFuture.thenCompose(
+                        /**
+                         * 由JobSubmitHandler 转发给 Dispatcher
+                         */
                         jobGraph -> gateway.submitJob(jobGraph, timeout));
 
         return jobSubmissionFuture.thenCombine(
@@ -192,6 +215,11 @@ public final class JobSubmitHandler
                     final InetSocketAddress address =
                             new InetSocketAddress(gateway.getHostname(), blobServerPort);
                     try {
+                        /**
+                         * 上传JobGraph相关的资源文件
+                         * BlobClient -> BlobServer
+                         * BIO
+                         */
                         ClientUtils.uploadJobGraphFiles(
                                 jobGraph,
                                 jarFiles,

@@ -141,8 +141,14 @@ public abstract class RestServerEndpoint implements AutoCloseableAsync {
             final Router router = new Router();
             final CompletableFuture<String> restAddressFuture = new CompletableFuture<>();
 
+            /**
+             * 初始化handler
+             */
             handlers = initializeHandlers(restAddressFuture);
 
+            /**
+             * 排序
+             */
             /* sort the handlers such that they are ordered the following:
              * /jobs
              * /jobs/overview
@@ -152,7 +158,10 @@ public abstract class RestServerEndpoint implements AutoCloseableAsync {
              */
             Collections.sort(handlers, RestHandlerUrlComparator.INSTANCE);
 
+            // 确认所有的handler都是唯一的。
             checkAllEndpointsAndHandlersAreUnique(handlers);
+
+            // 注册handler 到 router（路由器）
             handlers.forEach(handler -> registerHandler(router, handler, log));
 
             ChannelInitializer<SocketChannel> initializer =
@@ -180,7 +189,7 @@ public abstract class RestServerEndpoint implements AutoCloseableAsync {
                                             new FlinkHttpObjectAggregator(
                                                     maxContentLength, responseHeaders))
                                     .addLast(new ChunkedWriteHandler())
-                                    .addLast(handler.getName(), handler)
+                                    .addLast(handler.getName(), handler)  // netty中的路由handler（内部就是flink的handler）
                                     .addLast(new PipelineErrorHandler(log, responseHeaders));
                         }
                     };
@@ -255,6 +264,9 @@ public abstract class RestServerEndpoint implements AutoCloseableAsync {
 
             state = State.RUNNING;
 
+            /**
+             * leader选举
+             */
             startInternal();
         }
     }

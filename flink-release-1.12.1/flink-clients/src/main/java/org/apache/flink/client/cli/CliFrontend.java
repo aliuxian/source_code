@@ -221,6 +221,9 @@ public class CliFrontend {
     protected void run(String[] args) throws Exception {
         LOG.info("Running 'run' command.");
 
+        /**
+         * 解析参数
+         */
         final Options commandOptions = CliFrontendParser.getRunCommandOptions();
         final CommandLine commandLine = getCommandLine(commandOptions, args, true);
 
@@ -235,6 +238,9 @@ public class CliFrontend {
 
         final ProgramOptions programOptions = ProgramOptions.create(commandLine);
 
+        /**
+         * 作业jar 以及 作业依赖
+         */
         final List<URL> jobJars = getJobJarAndDependencies(programOptions);
 
         final Configuration effectiveConfiguration =
@@ -242,9 +248,15 @@ public class CliFrontend {
 
         LOG.debug("Effective executor configuration: {}", effectiveConfiguration);
 
+        /**
+         * PackagedProgram  里面会拿到main方法
+         */
         final PackagedProgram program = getPackagedProgram(programOptions, effectiveConfiguration);
 
         try {
+            /**
+             *
+             */
             executeProgram(effectiveConfiguration, program);
         } finally {
             program.deleteExtractedLibraries();
@@ -1038,6 +1050,7 @@ public class CliFrontend {
      */
     public int parseAndRun(String[] args) {
 
+        // 检查合法性
         // check for action
         if (args.length < 1) {
             CliFrontendParser.printHelp(customCommandLines);
@@ -1117,23 +1130,42 @@ public class CliFrontend {
     public static void main(final String[] args) {
         EnvironmentInformation.logEnvironmentInfo(LOG, "Command Line Client", args);
 
+        // conf目录
         // 1. find the configuration directory
         final String configurationDirectory = getConfigurationDirectoryFromEnv();
 
+        // 加载配置文件
         // 2. load the global configuration
         final Configuration configuration =
                 GlobalConfiguration.loadConfiguration(configurationDirectory);
 
+        /**
+         * 构造解析命令行参数的对象：
+         * FlinkYarnSessionCli        or
+         * FallbackYarnSessionCli     or
+         * DefaultCLI
+          */
         // 3. load the custom command lines
         final List<CustomCommandLine> customCommandLines =
                 loadCustomCommandLines(configuration, configurationDirectory);
 
         try {
+            /**
+             * configuration   flink-conf.yaml
+             * customCommandLines   命令行 args
+             */
             final CliFrontend cli = new CliFrontend(configuration, customCommandLines);
 
             SecurityUtils.install(new SecurityConfiguration(cli.configuration));
+
             int retCode =
-                    SecurityUtils.getInstalledContext().runSecured(() -> cli.parseAndRun(args));
+                    SecurityUtils.getInstalledContext().runSecured(
+                            /**
+                             * 入口
+                             */
+                            () -> cli.parseAndRun(args)
+                    );
+
             System.exit(retCode);
         } catch (Throwable t) {
             final Throwable strippedThrowable =

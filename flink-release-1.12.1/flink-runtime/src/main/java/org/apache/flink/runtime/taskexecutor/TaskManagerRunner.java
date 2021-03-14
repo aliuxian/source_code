@@ -91,6 +91,15 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * This class is the executable entry point for the task manager in yarn or standalone mode. It
  * constructs the related components (network, I/O manager, memory manager, RPC service, HA service)
  * and starts them.
+ *
+ * 启动必要的服务
+ * 向主节点注册
+ * 与主节点保持心跳
+ * 向主节点汇报资源情况：
+ *      从节点注册成功：注册Slot
+ *      心跳：汇报Slot的状态
+ *
+ *
  */
 public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync {
 
@@ -136,27 +145,57 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 
         timeout = AkkaUtils.getTimeoutAsTime(configuration);
 
+        /**
+         * 线程池
+         * 线程数量就等于core的数量
+         */
         this.executor =
                 java.util.concurrent.Executors.newScheduledThreadPool(
                         Hardware.getNumberCPUCores(),
                         new ExecutorThreadFactory("taskmanager-future"));
 
+        /**
+         * 高可用
+         * ZooKeeperHaServices
+         */
         highAvailabilityServices =
                 HighAvailabilityServicesUtils.createHighAvailabilityServices(
                         configuration,
                         executor,
                         HighAvailabilityServicesUtils.AddressResolution.NO_ADDRESS_RESOLUTION);
 
+        /**
+         * JMX 服务
+         * 1.2 才有的
+         * 方便自己开发监控程序来监控集群的资源使用情况
+         */
         JMXService.startInstance(configuration.getString(JMXServerOptions.JMX_SERVER_PORT));
 
+        /**
+         * RPC服务
+         * RpcService 内部 封装了 ActorSystem
+         */
         rpcService = createRpcService(configuration, highAvailabilityServices);
 
+        /**
+         * resourceId
+         * 每一个和资源有关的组件都会有一个resourceId
+         */
         this.resourceId =
                 getTaskManagerResourceID(
                         configuration, rpcService.getAddress(), rpcService.getPort());
 
+        /**
+         * 心跳服务
+         * 初始化两个参数：
+         *      心跳间隔时间 10s
+         *      心跳超时时间 50s
+         */
         HeartbeatServices heartbeatServices = HeartbeatServices.fromConfiguration(configuration);
 
+        /**
+         * 监控
+         */
         metricRegistry =
                 new MetricRegistryImpl(
                         MetricRegistryConfiguration.fromConfiguration(configuration),
@@ -166,16 +205,28 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
                 MetricUtils.startRemoteMetricsRpcService(configuration, rpcService.getAddress());
         metricRegistry.startQueryService(metricQueryServiceRpcService, resourceId);
 
+        /**
+         * blob缓存服务
+         * 在主节点启动的时候，启动了一个BlobServer
+         * 从节点启动的是BlobCacheService  做文件缓存的
+         */
         blobCacheService =
                 new BlobCacheService(
                         configuration, highAvailabilityServices.createBlobStore(), null);
 
+        /**
+         *
+         */
         final ExternalResourceInfoProvider externalResourceInfoProvider =
                 ExternalResourceUtils.createStaticExternalResourceInfoProvider(
                         ExternalResourceUtils.getExternalResourceAmountMap(configuration),
                         ExternalResourceUtils.externalResourceDriversFromConfig(
                                 configuration, pluginManager));
 
+        /**
+         * TaskExecutor服务
+         * 创建TaskExecutor
+         */
         taskExecutorService =
                 taskExecutorServiceFactory.createTaskExecutor(
                         this.configuration,
@@ -217,6 +268,10 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
     // --------------------------------------------------------------------------------------------
 
     public void start() throws Exception {
+        /**
+         * taskExecutorService 就是 ：
+         *      TaskExecutorToServiceAdapter
+         */
         taskExecutorService.start();
     }
 
@@ -312,6 +367,9 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
         // OutOfMemoryError.
         if (ExceptionUtils.isJvmFatalOrOutOfMemoryError(exception)
                 && !ExceptionUtils.isMetaspaceOutOfMemoryError(exception)) {
+            /**
+             * 注册失败  直接关闭JVM
+             */
             terminateJVM();
         } else {
             closeAsync();
@@ -355,16 +413,44 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 
     public static void runTaskManager(Configuration configuration, PluginManager pluginManager)
             throws Exception {
+        /**
+         * 创建TaskManagerRunner 内部封装了 TaskExecutor，
+         * 并且TaskExecutor是一个Endpoint，意味着创建成功之后就回去调用自己的onStart方法
+         *
+         * RCP服务
+         * 心跳服务
+         * JMX服务
+         * 高可用模式
+         * 线程池
+         * blob缓存服务
+         */
         final TaskManagerRunner taskManagerRunner =
                 new TaskManagerRunner(
-                        configuration, pluginManager, TaskManagerRunner::createTaskExecutorService);
+                        configuration, pluginManager,
+                        // 重点：TaskManagerRunner里面创建TaskExecutor的地方，最终会执行这个句代码
+                        // 真正去创建TaskExecutor的地方
+                        TaskManagerRunner::createTaskExecutorService);
 
+        /**
+         *  启动TaskExecutor，最后启动RPC服务，跳转到TaskExecutor额onStart方法
+         *  taskManagerRunner.start();
+         *      taskExecutorService.start();
+         *          taskExecutor.start();
+         *              rpcServer.start();
+         *                  rpcEndpoint.tell(ControlMessages.START, ActorRef.noSender());
+         *                  然后跳转到TaskExecutor额onStart方法
+         *
+         */
         taskManagerRunner.start();
     }
 
     public static void runTaskManagerSecurely(String[] args) {
         try {
+            /**
+             * 参数解析  命令行参数、flink-conf.yaml文件
+             */
             Configuration configuration = loadConfiguration(args);
+            // TaskManager启动入口
             runTaskManagerSecurely(configuration);
         } catch (Throwable t) {
             final Throwable strippedThrowable =
@@ -375,16 +461,20 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
     }
 
     public static void runTaskManagerSecurely(Configuration configuration) throws Exception {
+
         replaceGracefulExitWithHaltIfConfigured(configuration);
         final PluginManager pluginManager =
                 PluginUtils.createPluginManagerFromRootFolder(configuration);
         FileSystem.initialize(configuration, pluginManager);
-
         SecurityUtils.install(new SecurityConfiguration(configuration));
+
 
         SecurityUtils.getInstalledContext()
                 .runSecured(
                         () -> {
+                            /**
+                             * call方法，runSecured会调用call方法
+                             */
                             runTaskManager(configuration, pluginManager);
                             return null;
                         });
@@ -407,6 +497,9 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
             FatalErrorHandler fatalErrorHandler)
             throws Exception {
 
+        /**
+         * 创建TaskExecutor
+         */
         final TaskExecutor taskExecutor =
                 startTaskManager(
                         configuration,
@@ -420,6 +513,9 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
                         externalResourceInfoProvider,
                         fatalErrorHandler);
 
+        /**
+         * TaskManagerRunner 里面 封装了 TaskExecutorToServiceAdapter  里面封装了 TasExecutor
+         */
         return TaskExecutorToServiceAdapter.createFor(taskExecutor);
     }
 
@@ -445,9 +541,16 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 
         String externalAddress = rpcService.getAddress();
 
+        /**
+         * 初始化资源配置
+         */
         final TaskExecutorResourceSpec taskExecutorResourceSpec =
                 TaskExecutorResourceUtils.resourceSpecFromConfig(configuration);
 
+        /**
+         * TaskManagerServicesConfiguration
+         * 配置：命令行参数、flink-conf.yaml
+         */
         TaskManagerServicesConfiguration taskManagerServicesConfiguration =
                 TaskManagerServicesConfiguration.fromConfiguration(
                         configuration,
@@ -463,11 +566,17 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
                         resourceID,
                         taskManagerServicesConfiguration.getSystemResourceMetricsProbingInterval());
 
+        /**
+         *
+         */
         final ExecutorService ioExecutor =
                 Executors.newFixedThreadPool(
                         taskManagerServicesConfiguration.getNumIoThreads(),
                         new ExecutorThreadFactory("flink-taskexecutor-io"));
 
+        /**
+         * 创建TaskManagerServices，内部初始化一些服务
+         */
         TaskManagerServices taskManagerServices =
                 TaskManagerServices.fromConfiguration(
                         taskManagerServicesConfiguration,
@@ -487,6 +596,9 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 
         String metricQueryServiceAddress = metricRegistry.getMetricQueryServiceGatewayRpcAddress();
 
+        /**
+         * 内部并没有做什么事
+         */
         return new TaskExecutor(
                 rpcService,
                 taskManagerConfiguration,

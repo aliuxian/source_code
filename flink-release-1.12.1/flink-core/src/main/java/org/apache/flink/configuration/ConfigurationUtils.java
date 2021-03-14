@@ -112,12 +112,16 @@ public class ConfigurationUtils {
 
     public static Time getStandaloneClusterStartupPeriodTime(Configuration configuration) {
         final Time timeout;
+        /**
+         * 是否设置了resourcemanager.standalone.start-up-time，默认是0
+         */
         long standaloneClusterStartupPeriodTime =
                 configuration.getLong(
                         ResourceManagerOptions.STANDALONE_CLUSTER_STARTUP_PERIOD_TIME);
         if (standaloneClusterStartupPeriodTime >= 0) {
             timeout = Time.milliseconds(standaloneClusterStartupPeriodTime);
         } else {
+            // 如果没有设置，那么设置为5minutes。
             timeout =
                     Time.milliseconds(
                             configuration.getLong(JobManagerOptions.SLOT_REQUEST_TIMEOUT));

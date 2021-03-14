@@ -302,9 +302,13 @@ public class RestClient implements AutoCloseableAsync {
                                     .collect(Collectors.joining(","))));
         }
 
+        /**
+         * 处理得到URL，然后决定有WebMonitorEndpoint中的那个Handler来处理
+         */
         String versionedHandlerURL =
                 "/" + apiVersion.getURLVersionPrefix() + messageHeaders.getTargetRestEndpointURL();
         String targetUrl = MessageParameters.resolveUrl(versionedHandlerURL, messageParameters);
+
 
         LOG.debug(
                 "Sending request of class {} to {}:{}{}",
@@ -318,6 +322,9 @@ public class RestClient implements AutoCloseableAsync {
         ByteBuf payload =
                 Unpooled.wrappedBuffer(sw.toString().getBytes(ConfigConstants.DEFAULT_CHARSET));
 
+        /**
+         * 创建 http request  jobGraphFile 以及 依赖的jar 都在请求体里
+         */
         Request httpRequest =
                 createRequest(
                         targetAddress + ':' + targetPort,
@@ -341,6 +348,9 @@ public class RestClient implements AutoCloseableAsync {
                                     typeParameters.toArray(new Class<?>[typeParameters.size()]));
         }
 
+        /**
+         * 真正的提交
+         */
         return submitRequest(targetAddress, targetPort, httpRequest, responseType);
     }
 
@@ -418,6 +428,7 @@ public class RestClient implements AutoCloseableAsync {
 
     private <P extends ResponseBody> CompletableFuture<P> submitRequest(
             String targetAddress, int targetPort, Request httpRequest, JavaType responseType) {
+        // netty客户端连接到服务端
         final ChannelFuture connectFuture = bootstrap.connect(targetAddress, targetPort);
 
         final CompletableFuture<Channel> channelFuture = new CompletableFuture<>();
@@ -444,6 +455,10 @@ public class RestClient implements AutoCloseableAsync {
                                     throw new IOException(
                                             "Netty pipeline was not properly initialized.");
                                 } else {
+                                    /**
+                                     * 连接成功之后，
+                                     * 将请求数据包发过去
+                                     */
                                     httpRequest.writeTo(channel);
                                     future = handler.getJsonFuture();
                                     success = true;

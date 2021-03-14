@@ -202,6 +202,9 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
                 "Starting scheduling with scheduling strategy [{}]",
                 schedulingStrategy.getClass().getName());
         prepareExecutionGraphForNgScheduling();
+        /**
+         *  对于流式任务  schedulingStrategy    都是 EagerSchedulingStrategy
+         */
         schedulingStrategy.startScheduling();
     }
 
@@ -367,6 +370,9 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 
         transitionToScheduled(verticesToDeploy);
 
+        /**
+         * 申请slot
+         */
         final List<SlotExecutionVertexAssignment> slotExecutionVertexAssignments =
                 allocateSlots(executionVertexDeploymentOptions);
 
@@ -376,6 +382,9 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
                         deploymentOptionsByVertex,
                         slotExecutionVertexAssignments);
 
+        /**
+         * 部署Task
+         */
         waitForAllSlotsAndDeploy(deploymentHandles);
     }
 

@@ -99,7 +99,12 @@ public class PermanentBlobCache extends AbstractBlobCache implements PermanentBl
         // Initializing the clean up task
         this.cleanupTimer = new Timer(true);
 
+        // 间隔时间  1小时
         this.cleanupInterval = blobClientConfig.getLong(BlobServerOptions.CLEANUP_INTERVAL) * 1000;
+
+        /**
+         * 定时任务
+         */
         this.cleanupTimer.schedule(
                 new PermanentBlobCleanupTask(), cleanupInterval, cleanupInterval);
     }
@@ -224,10 +229,12 @@ public class PermanentBlobCache extends AbstractBlobCache implements PermanentBl
                         jobRefCounters.entrySet().iterator();
                 final long currentTimeMillis = System.currentTimeMillis();
 
+                // 遍历所有文件
                 while (entryIter.hasNext()) {
                     Map.Entry<JobID, RefCount> entry = entryIter.next();
                     RefCount ref = entry.getValue();
 
+                    // 引用数小于0
                     if (ref.references <= 0
                             && ref.keepUntil > 0
                             && currentTimeMillis >= ref.keepUntil) {
@@ -247,6 +254,7 @@ public class PermanentBlobCache extends AbstractBlobCache implements PermanentBl
 
                         boolean success = false;
                         try {
+                            // 删除过期文件
                             FileUtils.deleteDirectory(localFile);
                             success = true;
                         } catch (Throwable t) {

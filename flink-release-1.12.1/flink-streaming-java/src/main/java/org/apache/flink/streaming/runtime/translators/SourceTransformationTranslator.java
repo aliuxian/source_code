@@ -55,6 +55,9 @@ public class SourceTransformationTranslator<OUT, SplitT extends SourceSplit, Enu
             final SourceTransformation<OUT, SplitT, EnumChkT> transformation,
             final Context context) {
 
+        /**
+         *
+         */
         return translateInternal(transformation, context, true /* emit progressive watermarks */);
     }
 
@@ -78,6 +81,9 @@ public class SourceTransformationTranslator<OUT, SplitT extends SourceSplit, Enu
 
         operatorFactory.setChainingStrategy(transformation.getChainingStrategy());
 
+        /**
+         *
+         */
         streamGraph.addSource(
                 transformationId,
                 slotSharingGroup,

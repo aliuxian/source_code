@@ -311,8 +311,27 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
         final ResourceID resourceId =
                 taskExecutorServices.getUnresolvedTaskManagerLocation().getResourceID();
+
+        /**
+         * 在ResourceManager的startHeartbeatServices方法中也创建了两个心跳服务，具体的对象是
+         *          HeartbeatManagerSenderImpl    RPC的 client
+         *          在其构造器中创建了一个定时方法，每10发送一次心跳请求
+         * 在TaskExecutor中，也有两个心跳服务，具体的对象是
+         *          HeartbeatManagerImpl，但是其内部什么都没做
+         *          RPC 的Server
+         *
+         */
+
+        /***
+         * 两个心跳管理器
+         * TaskExecutor跟JobMaster维持心跳
+         */
         this.jobManagerHeartbeatManager =
                 createJobManagerHeartbeatManager(heartbeatServices, resourceId);
+
+        /**
+         * TaskExecutor跟ResourceManager维持心跳
+         */
         this.resourceManagerHeartbeatManager =
                 createResourceManagerHeartbeatManager(heartbeatServices, resourceId);
     }
@@ -370,6 +389,11 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
     @Override
     public void onStart() throws Exception {
         try {
+            /***
+             * 启动TaskExecutor的服务
+             * 内部回去注册
+             * Flink使用了大量的异步编程，所以下面这个方法实际执行的很快
+             */
             startTaskExecutorServices();
         } catch (Throwable t) {
             final TaskManagerException exception =
@@ -379,21 +403,53 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
             throw exception;
         }
 
+
+        /**
+         * 开启一个注册超时服务，内部启动了一个定时服务，超时没有注册成功就会取消注册
+         *
+         * 在注册成功之后就会调用stopRegistrationTimeout()来阻止取消注册地的操作
+         *
+         */
         startRegistrationTimeout();
     }
 
     private void startTaskExecutorServices() throws Exception {
         try {
+            /**
+             * 1. 获取ResourceManager的地址，同时添加监听
+             * 2. 当前TaskExecutor去完成注册
+             * 3. 收到响应：
+             *          成功：
+             *              维持和ResourceManager的心跳
+             *              进行资源（Slot）汇报
+             *          失败：直接关闭JVM
+             *
+             *
+             * resourceManagerLeaderRetriever  =》  DefaultLeaderRetrievalService
+             *
+             *
+             * resourceManagerLeaderRetriever  接收器
+             * ResourceManagerLeaderListener   监听器
+             */
             // start by connecting to the ResourceManager
             resourceManagerLeaderRetriever.start(new ResourceManagerLeaderListener());
 
+            /**
+             * 启动taskSlotTable！！！！非常重要，负责所有的Slot操作
+             */
             // tell the task slot table who's responsible for the task slot actions
             taskSlotTable.start(new SlotActionsImpl(), getMainThreadExecutor());
 
+            /**
+             * 监控JobMaster
+             */
             // start the job leader service
             jobLeaderService.start(
                     getAddress(), getRpcService(), haServices, new JobLeaderListenerImpl());
 
+            /***
+             * 文件缓存服务
+             */
             fileCache =
                     new FileCache(
                             taskManagerConfiguration.getTmpDirectories(),
@@ -1220,8 +1276,16 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
     private void notifyOfNewResourceManagerLeader(
             String newLeaderAddress, ResourceManagerId newResourceManagerId) {
+
+        /**
+         * 构建ResourceManagerAddress
+         */
         resourceManagerAddress =
                 createResourceManagerAddress(newLeaderAddress, newResourceManagerId);
+        /**
+         *  与主节点进行连接：
+         *  为什么是reconnect，因为只要zk的地址发生变化，就会触发回调，又会执行到这个地方，与新地址进行连接
+         */
         reconnectToResourceManager(
                 new FlinkException(
                         String.format(
@@ -1241,8 +1305,20 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
     }
 
     private void reconnectToResourceManager(Exception cause) {
+        /**
+         * 关闭和已有的ResourceManager的连接
+         */
         closeResourceManagerConnection(cause);
+
+        /**
+         * 开启一个注册超时
+         * 和前面的那个超时任务，随便哪个先执行都可
+         */
         startRegistrationTimeout();
+
+        /**
+         * 连接到新的ResourceManager
+         */
         tryConnectToResourceManager();
     }
 
@@ -1259,6 +1335,9 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
         log.info("Connecting to ResourceManager {}.", resourceManagerAddress);
 
+        /**
+         * 封装从节点的注册信息
+         */
         final TaskExecutorRegistration taskExecutorRegistration =
                 new TaskExecutorRegistration(
                         getAddress(),
@@ -1270,6 +1349,9 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
                         taskManagerConfiguration.getDefaultSlotResourceProfile(),
                         taskManagerConfiguration.getTotalResourceProfile());
 
+        /**
+         * 构造一个连接对象
+         */
         resourceManagerConnection =
                 new TaskExecutorToResourceManagerConnection(
                         log,
@@ -1280,6 +1362,10 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
                         getMainThreadExecutor(),
                         new ResourceManagerRegistrationListener(),
                         taskExecutorRegistration);
+
+        /**
+         * 开启连接
+         */
         resourceManagerConnection.start();
     }
 
@@ -1289,16 +1375,29 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
             InstanceID taskExecutorRegistrationId,
             ClusterInformation clusterInformation) {
 
+        /**
+         * 进行Slot的汇报
+         * 异步
+         */
         final CompletableFuture<Acknowledge> slotReportResponseFuture =
+                /**
+                 * RPC请求，
+                 * 四个参数
+                 */
                 resourceManagerGateway.sendSlotReport(
                         getResourceID(),
                         taskExecutorRegistrationId,
+                        // 注册汇报
                         taskSlotTable.createSlotReport(getResourceID()),
                         taskManagerConfiguration.getTimeout());
 
         slotReportResponseFuture.whenCompleteAsync(
                 (acknowledge, throwable) -> {
                     if (throwable != null) {
+                        /**
+                         * 汇报失败了
+                         * 重新进行连接
+                         */
                         reconnectToResourceManager(
                                 new TaskManagerException(
                                         "Failed to send initial slot report to ResourceManager.",
@@ -1307,6 +1406,10 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
                 },
                 getMainThreadExecutor());
 
+        /**
+         * 添加监控，
+         * 建立和ResourceManager的心跳
+         */
         // monitor the resource manager as heartbeat target
         resourceManagerHeartbeatManager.monitorTarget(
                 resourceManagerResourceId,
@@ -1356,6 +1459,9 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
             ResourceManagerGateway resourceManagerGateway =
                     establishedResourceManagerConnection.getResourceManagerGateway();
+            /**
+             * 给ResourceManager发送一条关闭连接的消息，让ResourceManager断开与这个节点的连接
+             */
             resourceManagerGateway.disconnectTaskManager(getResourceID(), cause);
 
             establishedResourceManagerConnection = null;
@@ -2015,6 +2121,9 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
         }
 
         // The fatal error handler implementation should make sure that this call is non-blocking
+        /**
+         * fatalErrorHandler 是 TaskManagerRunner
+         */
         fatalErrorHandler.onFatalError(t);
     }
 
@@ -2039,8 +2148,12 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
     /** The listener for leader changes of the resource manager. */
     private final class ResourceManagerLeaderListener implements LeaderRetrievalListener {
 
+        /**
+         * 在从zk中获取到ResourceManager的地址之后就会回调这个方法
+         */
         @Override
         public void notifyLeaderAddress(final String leaderAddress, final UUID leaderSessionID) {
+
             runAsync(
                     () ->
                             notifyOfNewResourceManagerLeader(
@@ -2115,6 +2228,10 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
                         //noinspection ObjectEquality
                         if (resourceManagerConnection == connection) {
                             try {
+                                /**
+                                 * 建立好了连接
+                                 * 字面意思：稳定的ResourceManager连接
+                                 */
                                 establishResourceManagerConnection(
                                         resourceManagerGateway,
                                         resourceManagerId,
@@ -2289,6 +2406,11 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
         @Override
         public TaskExecutorHeartbeatPayload retrievePayload(ResourceID resourceID) {
             validateRunsInMainThread();
+            /**
+             * 创建一个Payload：
+             *      Slot的信息
+             *      集群的分区信息
+             */
             return new TaskExecutorHeartbeatPayload(
                     taskSlotTable.createSlotReport(getResourceID()),
                     partitionTracker.createClusterPartitionReport());

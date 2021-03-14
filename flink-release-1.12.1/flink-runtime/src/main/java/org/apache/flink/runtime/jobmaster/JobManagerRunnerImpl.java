@@ -150,6 +150,11 @@ public class JobManagerRunnerImpl
 
         synchronized (lock) {
             try {
+                /**
+                 * 开启选举，
+                 * JobManagerRunnerImpl 就是一个LeaderContender
+                 *  竞选成功之后会回调 JobMaster的start的方法
+                 */
                 leaderElectionService.start(this);
             } catch (Exception e) {
                 log.error(
@@ -157,6 +162,12 @@ public class JobManagerRunnerImpl
                         e);
                 throw new Exception("Could not start the leader election service.", e);
             }
+
+            /**
+             * 启动JobMaster
+             *
+             * jobMasterService == JobMaster 实例
+             */
             // now start the JobManager
             this.jobMasterService =
                     jobMasterFactory.createJobMasterService(
@@ -309,6 +320,9 @@ public class JobManagerRunnerImpl
                                 leadershipOperation.thenCompose(
                                         (ignored) -> {
                                             synchronized (lock) {
+                                                /**
+                                                 *
+                                                 */
                                                 return verifyJobSchedulingStatusAndStartJobManager(
                                                         leaderSessionID);
                                             }
@@ -329,6 +343,9 @@ public class JobManagerRunnerImpl
                     if (jobSchedulingStatus == JobSchedulingStatus.DONE) {
                         return jobAlreadyDone();
                     } else {
+                        /**
+                         *
+                         */
                         return startJobMaster(leaderSessionId);
                     }
                 });
@@ -343,6 +360,9 @@ public class JobManagerRunnerImpl
                 jobMasterService.getAddress());
 
         try {
+            /**
+             * 表示当前Job在running状态
+             */
             runningJobsRegistry.setJobRunning(jobGraph.getJobID());
         } catch (IOException e) {
             return FutureUtils.completedExceptionally(
@@ -355,6 +375,9 @@ public class JobManagerRunnerImpl
 
         final CompletableFuture<Acknowledge> startFuture;
         try {
+            /**
+             * 启动JobMaster
+             */
             startFuture = jobMasterService.start(new JobMasterId(leaderSessionId));
         } catch (Exception e) {
             return FutureUtils.completedExceptionally(

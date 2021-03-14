@@ -172,6 +172,8 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
 
             SecurityContext securityContext = installSecurityContext(configuration);
 
+            // Callable 类型 匿名内部类  =》 大括号内的内容就是call方法的内容。
+            // runSecured（NoOpSecurityContext）最终就是调用的Callable的call方法
             securityContext.runSecured(
                     (Callable<Void>)
                             () -> {
@@ -221,7 +223,14 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
             throws Exception {
         synchronized (lock) {
             // 初始化基础服务
-            // RPC    JMX（1.12新增）    IOExecutor   HA    blob     heartbeat    metric     graph store
+            // RPC
+            // JMX（1.12新增）
+            // IOExecutor
+            // HA
+            // blob
+            // heartbeat
+            // metric
+            // ExecutionGraphStore
             initializeServices(configuration, pluginManager);
 
             // write host information into configuration
@@ -231,13 +240,18 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
 
             /**
              * 创建DispatcherResourceManagerComponent，初始化以下工厂类：
+             *
              */
             final DispatcherResourceManagerComponentFactory
                     dispatcherResourceManagerComponentFactory =
                             createDispatcherResourceManagerComponentFactory(configuration);
 
             /**
-             *
+             * biglau
+             * 利用上一步创建出来的工厂类，创建出来JobManager的三个核心组件：
+             * resourceManager
+             * dispatcher
+             * webMonitorEndpoint
              */
             clusterComponent =
                     dispatcherResourceManagerComponentFactory.create(
@@ -303,6 +317,7 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
                     Executors.newFixedThreadPool(
                             ClusterEntrypointUtils.getPoolSize(configuration),
                             new ExecutorThreadFactory("cluster-io"));
+
             // ha服务，负责 HA 服务的是：ZooKeeperHaServices
             haServices = createHaServices(configuration, ioExecutor);
 
@@ -337,8 +352,8 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
             /**
              * biglau
              * Flink的四层模型
-             * StreamGraph 将Operator 连接起来
-             * JobGraph   # 对StreamGraph做一些优化
+             * StreamGraph 将 我们自己写的代码 Operator 连接起来   stream node    stream edge
+             * JobGraph   # 对StreamGraph做一些优化 （能够连起来的两个operator就会将其合起来）
              * 以上步骤在客户端完成的，所以实际上提交作业的时候提交的是JobGraph
              * ExecutionGraph
              * 物理执行

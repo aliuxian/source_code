@@ -135,6 +135,9 @@ public class ZooKeeperStateHandleStore<T extends Serializable>
 
         final String path = normalizePath(pathInZooKeeper);
 
+        /**
+         * 存储到文件系统
+         */
         RetrievableStateHandle<T> storeHandle = storage.store(state);
 
         boolean success = false;
@@ -150,6 +153,9 @@ public class ZooKeeperStateHandleStore<T extends Serializable>
             // Create the lock node in a transaction with the actual state node. That way we can
             // prevent
             // race conditions with a concurrent delete operation.
+            /**
+             * 将状态句柄写到zk的一个持久化节点
+             */
             client.inTransaction()
                     .create()
                     .withMode(CreateMode.PERSISTENT)

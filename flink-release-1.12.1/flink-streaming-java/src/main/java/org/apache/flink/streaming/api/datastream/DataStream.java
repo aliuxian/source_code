@@ -607,6 +607,10 @@ public class DataStream<T> {
      * @return The transformed {@link DataStream}.
      */
     public <R> SingleOutputStreamOperator<R> flatMap(FlatMapFunction<T, R> flatMapper) {
+        /**
+         * 算子本身是Operator，Function只是Operator的一个参数，
+         */
+
 
         TypeInformation<R> outType =
                 TypeExtractor.getFlatMapReturnTypes(
@@ -629,6 +633,10 @@ public class DataStream<T> {
      */
     public <R> SingleOutputStreamOperator<R> flatMap(
             FlatMapFunction<T, R> flatMapper, TypeInformation<R> outputType) {
+        /**
+         * flatMapper  是Function
+         * StreamFlatMap  就是一个 StreamOperator
+         */
         return transform("Flat Map", outputType, new StreamFlatMap<>(clean(flatMapper)));
     }
 
@@ -1194,6 +1202,12 @@ public class DataStream<T> {
         // read the output type of the input Transform to coax out errors about MissingTypeInfo
         transformation.getOutputType();
 
+        /**
+         * 创建一个OneInputTransformation对象
+         *
+         * 在创建DataStream的时候将StreamSource封装在了一个Transformation中，
+         * 并赋值给了DataStream的transformation字段
+         */
         OneInputTransformation<T, R> resultTransform =
                 new OneInputTransformation<>(
                         this.transformation,
@@ -1206,6 +1220,9 @@ public class DataStream<T> {
         SingleOutputStreamOperator<R> returnStream =
                 new SingleOutputStreamOperator(environment, resultTransform);
 
+        /**
+         * 将创建好的Transformation 添加到一开始创建的执行环境的 transformations（是一个ArrayList）的成员变量中
+         */
         getExecutionEnvironment().addOperator(resultTransform);
 
         return returnStream;

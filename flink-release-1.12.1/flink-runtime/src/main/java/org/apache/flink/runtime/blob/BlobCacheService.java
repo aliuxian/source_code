@@ -53,6 +53,12 @@ public class BlobCacheService implements BlobService {
             throws IOException {
 
         this(
+                /**
+                 * 持久的缓存服务PermanentBlobCache
+                 * 临时的缓存服务TransientBlobCache
+                 *
+                 * 在这两个服务的内部都会启动一个定时服务，会将过期的资源文件删除
+                 */
                 new PermanentBlobCache(blobClientConfig, blobView, serverAddress),
                 new TransientBlobCache(blobClientConfig, serverAddress));
     }

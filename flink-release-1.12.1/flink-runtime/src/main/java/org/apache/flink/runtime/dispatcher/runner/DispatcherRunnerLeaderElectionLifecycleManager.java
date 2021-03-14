@@ -37,6 +37,9 @@ final class DispatcherRunnerLeaderElectionLifecycleManager<
         this.dispatcherRunner = dispatcherRunner;
         this.leaderElectionService = leaderElectionService;
 
+        /**
+         * 开始选举
+         */
         leaderElectionService.start(dispatcherRunner);
     }
 
@@ -67,6 +70,9 @@ final class DispatcherRunnerLeaderElectionLifecycleManager<
 
     public static <T extends DispatcherRunner & LeaderContender> DispatcherRunner createFor(
             T dispatcherRunner, LeaderElectionService leaderElectionService) throws Exception {
+        /**
+         *
+         */
         return new DispatcherRunnerLeaderElectionLifecycleManager<>(
                 dispatcherRunner, leaderElectionService);
     }

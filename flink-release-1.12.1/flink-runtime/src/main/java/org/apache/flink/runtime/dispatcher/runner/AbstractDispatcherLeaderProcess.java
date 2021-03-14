@@ -90,12 +90,18 @@ public abstract class AbstractDispatcherLeaderProcess implements DispatcherLeade
 
     @Override
     public final void start() {
+        /**
+         *
+         */
         runIfStateIs(State.CREATED, this::startInternal);
     }
 
     private void startInternal() {
         log.info("Start {}.", getClass().getSimpleName());
         state = State.RUNNING;
+        /**
+         * SessionDispatcherLeaderProcess
+         */
         onStart();
     }
 

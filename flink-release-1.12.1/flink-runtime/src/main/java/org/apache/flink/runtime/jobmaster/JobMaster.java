@@ -279,6 +279,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId>
 
         this.jobMasterConfiguration = checkNotNull(jobMasterConfiguration);
         this.resourceId = checkNotNull(resourceId);
+
+        // 保存jobGraph  后面后把它变成ExecutionGraph
         this.jobGraph = checkNotNull(jobGraph);
         this.rpcTimeout = jobMasterConfiguration.getRpcTimeout();
         this.highAvailabilityServices = checkNotNull(highAvailabilityService);
@@ -375,8 +377,17 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId>
      */
     public CompletableFuture<Acknowledge> start(final JobMasterId newJobMasterId) throws Exception {
         // make sure we receive RPC and async calls
+        /**
+         * 启动RPCServer
+         * 由于JobMaster是一个Endpoint，所以启动好rpcServe之后应该去执行onStart方法，但是JobMaster没有重写onStart方法
+         */
         start();
 
+        /**
+         * JobMaster向ResourceManager注册
+         *
+         *  申请slot，开始调度StreamTask
+         */
         return callAsyncWithoutFencing(
                 () -> startJobExecution(newJobMasterId), RpcUtils.INF_TIMEOUT);
     }
@@ -863,6 +874,10 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId>
 
         setNewFencingToken(newJobMasterId);
 
+        /**
+         * 启动JobMaster相关的服务
+         * 里面四件事
+         */
         startJobMasterServices();
 
         log.info(
@@ -871,25 +886,44 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId>
                 jobGraph.getJobID(),
                 newJobMasterId);
 
+        /**
+         * biglau
+         * 解析ExecutionGraph  申请Slot 部署Task到TaskExecutor
+         */
         resetAndStartScheduler();
 
         return Acknowledge.get();
     }
 
     private void startJobMasterServices() throws Exception {
+        /**
+         * 心跳服务两个：
+         *      和 TaskExecutor
+         *      和 ResourceManager
+         */
         startHeartbeatServices();
 
         // start the slot pool make sure the slot pool now accepts messages for this leader
+        /**
+         * slot管理服务
+         * 内部有三个定时服务
+         */
         slotPool.start(getFencingToken(), getAddress(), getMainThreadExecutor());
 
         // TODO: Remove once the ZooKeeperLeaderRetrieval returns the stored address upon start
         // try to reconnect to previously known leader
+        /**
+         * 连接resourceManager进行注册
+         */
         reconnectToResourceManager(new FlinkException("Starting JobMaster component."));
 
         // job is ready to go, try to establish connection with resource manager
         //   - activate leader retrieval for the resource manager
         //   - on notification of the leader, the connection will be established and
         //     the slot pool will start requesting slots
+        /**
+         * 监听ResourceManager的地址
+         */
         resourceManagerLeaderRetriever.start(new ResourceManagerLeaderListener());
     }
 
@@ -1008,6 +1042,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId>
                             "ExecutionGraph is being reset in order to be rescheduled."));
             final JobManagerJobMetricGroup newJobManagerJobMetricGroup =
                     jobMetricGroupFactory.create(jobGraph);
+
             final SchedulerNG newScheduler =
                     createScheduler(executionDeploymentTracker, newJobManagerJobMetricGroup);
 
@@ -1017,11 +1052,17 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId>
                             .handle(
                                     (ignored, throwable) -> {
                                         newScheduler.setMainThreadExecutor(getMainThreadExecutor());
+                                        /**
+                                         *
+                                         */
                                         assignScheduler(newScheduler, newJobManagerJobMetricGroup);
                                         return null;
                                     });
         }
 
+        /**
+         * ！！！startScheduling
+         */
         FutureUtils.assertNoException(schedulerAssignedFuture.thenRun(this::startScheduling));
     }
 
@@ -1031,6 +1072,9 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId>
         jobStatusListener = new JobManagerJobStatusListener();
         schedulerNG.registerJobStatusListener(jobStatusListener);
 
+        /**
+         *
+         */
         schedulerNG.startScheduling();
     }
 

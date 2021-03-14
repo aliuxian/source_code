@@ -254,13 +254,25 @@ public class StreamGraphGenerator {
     }
 
     public StreamGraph generate() {
+        /**
+         * 创建一个StreamGraph，空的，还没有edge和node
+         * 注意传进去了一个checkpointConfig
+         */
         streamGraph = new StreamGraph(executionConfig, checkpointConfig, savepointRestoreSettings);
         shouldExecuteInBatchMode = shouldExecuteInBatchMode(runtimeExecutionMode);
         configureStreamGraph(streamGraph);
 
+        /**
+         * 初始化一个容器来存储已经转换过去的transformation
+         */
         alreadyTransformed = new HashMap<>();
 
         for (Transformation<?> transformation : transformations) {
+            /**
+             * 将Transformation转换为StreamNode
+             *
+             * Function -> StreamOperator -> Transformation -> StreamNode
+             */
             transform(transformation);
         }
 
@@ -389,12 +401,19 @@ public class StreamGraphGenerator {
         transform.getOutputType();
 
         @SuppressWarnings("unchecked")
+        /**
+         * Transformation 与 TransformationTranslator的映射关系
+         * 每一个Transformation都有特定的Translator
+         */
         final TransformationTranslator<?, Transformation<?>> translator =
                 (TransformationTranslator<?, Transformation<?>>)
                         translatorMap.get(transform.getClass());
 
         Collection<Integer> transformedIds;
         if (translator != null) {
+            /**
+             * 调用对应翻译器的translate方法
+             */
             transformedIds = translate(translator, transform);
         } else {
             transformedIds = legacyTransform(transform);
@@ -661,8 +680,13 @@ public class StreamGraphGenerator {
         final TransformationTranslator.Context context =
                 new ContextImpl(this, streamGraph, slotSharingGroup, configuration);
 
+        /**
+         *
+         */
         return shouldExecuteInBatchMode
+                // 批处理（1.2 才有的（流批一体））
                 ? translator.translateForBatch(transform, context)
+                // 流式处理
                 : translator.translateForStreaming(transform, context);
     }
 

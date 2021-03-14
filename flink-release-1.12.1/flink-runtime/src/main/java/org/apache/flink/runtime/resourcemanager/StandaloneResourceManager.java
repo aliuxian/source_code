@@ -110,14 +110,32 @@ public class StandaloneResourceManager extends ResourceManager<ResourceID> {
 
     @Override
     protected void onLeadership() {
+        /**
+         * 主节点JobManager启动好了之后，等待一段时间之后还是没有TaskManager来注册
+         *
+         * 开始 启动期
+         * 刚开始启动的时候不会去将无法满足的Slot请求置为失败，
+         * 但是等待一段时间（默认5minutes）之后就会将所有的无法满足的slot 请求置为失败
+         */
         startStartupPeriod();
     }
 
     private void startStartupPeriod() {
+
+        /**
+         *是否将无法满足的Slot Request设置为失败
+         *
+         * 会将SlotManagerImpl 的 failUnfulfillableRequest 设置为false。默认为true
+         * 为true的时候，会立即将无法满足的Slot request置为失败。
+         */
         setFailUnfulfillableRequest(false);
 
         final long startupPeriodMillis = startupPeriodTime.toMilliseconds();
 
+        // 启动一个异步定时任务
+        /**
+         * 超过startupPeriodMillis就会将没有得到分配的Slot请求设置为失败
+         */
         if (startupPeriodMillis > 0) {
             scheduleRunAsync(
                     () -> setFailUnfulfillableRequest(true),

@@ -64,18 +64,48 @@ public class AbstractSessionClusterExecutor<
             @Nonnull final Configuration configuration,
             @Nonnull final ClassLoader userCodeClassloader)
             throws Exception {
+
+        /**
+         * 根据pipeline（StreamGraph）  创建 JobGraph
+         * 内部通过Translator来翻译
+         */
         final JobGraph jobGraph = PipelineExecutorUtils.getJobGraph(pipeline, configuration);
 
+
+        /**
+         * 要提交的内容到这里就准备完了，接下来获取提交作业的client
+         */
+
+
+        /**
+         *
+         */
         try (final ClusterDescriptor<ClusterID> clusterDescriptor =
                 clusterClientFactory.createClusterDescriptor(configuration)) {
             final ClusterID clusterID = clusterClientFactory.getClusterId(configuration);
             checkState(clusterID != null);
 
+            /**
+             * 内部初始化得到RestClusterClient
+             *          RestClusterClient的内部初始化一个RestClient
+             *                   RestClient的内部会初始化一个netty的客户端
+             *
+             * 接收Job的服务端就是WebMonitorEndpoint里的netty服务端
+             */
             final ClusterClientProvider<ClusterID> clusterClientProvider =
                     clusterDescriptor.retrieve(clusterID);
+
+            /**
+             * clusterClient 的具体实现是 RestClusterClient
+             *                                  内部有一个RestClient
+             *                                          内部有一个netty的客户端
+             */
             ClusterClient<ClusterID> clusterClient = clusterClientProvider.getClusterClient();
+
             return clusterClient
+                    // 提交作业JobGraph
                     .submitJob(jobGraph)
+                    // 等待
                     .thenApplyAsync(
                             FunctionUtils.uncheckedFunction(
                                     jobId -> {

@@ -175,6 +175,9 @@ public class StreamingJobGraphGenerator {
             legacyHashes.add(hasher.traverseStreamGraphAndGenerateHashes(streamGraph));
         }
 
+        /**
+         *
+         */
         setChaining(hashes, legacyHashes);
 
         setPhysicalEdges();
@@ -349,6 +352,9 @@ public class StreamingJobGraphGenerator {
 
         // iterate over a copy of the values, because this map gets concurrently modified
         for (OperatorChainInfo info : initialEntryPoints) {
+            /**
+             *
+             */
             createChain(
                     info.getStartNodeId(),
                     1, // operators start at position 1 because 0 is for chained source inputs
@@ -374,15 +380,31 @@ public class StreamingJobGraphGenerator {
             StreamNode currentNode = streamGraph.getStreamNode(currentNodeId);
 
             for (StreamEdge outEdge : currentNode.getOutEdges()) {
+                /**
+                 * 九个条件
+                 */
                 if (isChainable(outEdge, streamGraph)) {
+                    /**
+                     * 可以chain
+                     */
                     chainableOutputs.add(outEdge);
                 } else {
+                    /**
+                     * 不可以chain
+                     */
                     nonChainableOutputs.add(outEdge);
                 }
             }
 
+            /**
+             * 把可以chain在一起的两个Operator形成一个operatorChain
+             */
             for (StreamEdge chainable : chainableOutputs) {
                 transitiveOutEdges.addAll(
+                        /***
+                         * 这里还会调用createChain方法，递归的，
+                         * 也就是先两个两个的chain起来，再看还能不能继续chain
+                         */
                         createChain(
                                 chainable.getTargetId(),
                                 chainIndex + 1,
@@ -840,6 +862,9 @@ public class StreamingJobGraphGenerator {
     public static boolean isChainable(StreamEdge edge, StreamGraph streamGraph) {
         StreamNode downStreamVertex = streamGraph.getTargetVertex(edge);
 
+        /**
+         * isChainableInput 九个条件
+         */
         return downStreamVertex.getInEdges().size() == 1 && isChainableInput(edge, streamGraph);
     }
 

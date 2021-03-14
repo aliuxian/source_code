@@ -28,6 +28,10 @@ import java.util.Collection;
  * Dispatcher implementation which spawns a {@link JobMaster} for each submitted {@link JobGraph}
  * within in the same process. This dispatcher can be used as the default for all different session
  * clusters.
+ *
+ *
+ *
+ * 继承至Endpoint类，所以构建好了之后就会调用onStart方法，onStart的实现在其父类Dispatcher中
  */
 public class StandaloneDispatcher extends Dispatcher {
     public StandaloneDispatcher(

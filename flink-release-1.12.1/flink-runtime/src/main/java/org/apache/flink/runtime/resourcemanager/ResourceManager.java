@@ -166,6 +166,11 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
      */
     private CompletableFuture<Void> clearStateFuture = CompletableFuture.completedFuture(null);
 
+
+    /**
+     * ResourceManager 就是一个Endpoint，所以执行完这个构造器之后就会去执行他的OnStart方法
+     *
+     */
     public ResourceManager(
             RpcService rpcService,
             ResourceID resourceId,
@@ -223,9 +228,16 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
     //  RPC lifecycle methods
     // ------------------------------------------------------------------------
 
+    /**
+     * ResourceManager对象创建好了之后就会执行onStart方法
+     * @throws Exception
+     */
     @Override
     public final void onStart() throws Exception {
         try {
+            /**
+             * 选举
+             */
             startResourceManagerServices();
         } catch (Throwable t) {
             final ResourceManagerException exception =
@@ -239,11 +251,17 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
     private void startResourceManagerServices() throws Exception {
         try {
+            /**
+             * 基于highAvailabilityServices创建的
+             * DefaultLeaderElectionService
+             */
             leaderElectionService =
                     highAvailabilityServices.getResourceManagerLeaderElectionService();
 
+            // standalone模式下啥也没做
             initialize();
 
+            // leader选举
             leaderElectionService.start(this);
             jobLeaderIdService.start(new JobLeaderIdActionsImpl());
 
@@ -424,6 +442,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
     public CompletableFuture<RegistrationResponse> registerTaskExecutor(
             final TaskExecutorRegistration taskExecutorRegistration, final Time timeout) {
 
+        /**
+         * 获取TaskExecutor的gateway
+         */
         CompletableFuture<TaskExecutorGateway> taskExecutorGatewayFuture =
                 getRpcService()
                         .connect(
@@ -440,6 +461,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
                         if (throwable != null) {
                             return new RegistrationResponse.Decline(throwable.getMessage());
                         } else {
+                            /**
+                             * 核心注册逻辑
+                             */
                             return registerTaskExecutorInternal(
                                     taskExecutorGateway, taskExecutorRegistration);
                         }
@@ -460,10 +484,17 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
             InstanceID taskManagerRegistrationId,
             SlotReport slotReport,
             Time timeout) {
+        /**
+         * 当前进行汇报的从节点的注册对象
+         */
         final WorkerRegistration<WorkerType> workerTypeWorkerRegistration =
                 taskExecutors.get(taskManagerResourceId);
 
+        /**
+         * 验证拿到的注册对象和进行汇报的TaskExecutor是不是同一个
+         */
         if (workerTypeWorkerRegistration.getInstanceID().equals(taskManagerRegistrationId)) {
+
             if (slotManager.registerTaskManager(workerTypeWorkerRegistration, slotReport)) {
                 onWorkerRegistered(workerTypeWorkerRegistration.getWorker());
             }
@@ -904,15 +935,21 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
     /**
      * Registers a new TaskExecutor.
      *
+     * 具体注册逻辑的实现
+     *
      * @param taskExecutorRegistration task executor registration parameters
      * @return RegistrationResponse
      */
     private RegistrationResponse registerTaskExecutorInternal(
             TaskExecutorGateway taskExecutorGateway,
             TaskExecutorRegistration taskExecutorRegistration) {
+        // 获取ResourceID
         ResourceID taskExecutorResourceId = taskExecutorRegistration.getResourceId();
+
+        // 获取TaskExecutor的注册对象，如果存在则证明以前注册过，需要替换
         WorkerRegistration<WorkerType> oldRegistration =
                 taskExecutors.remove(taskExecutorResourceId);
+
         if (oldRegistration != null) {
             // TODO :: suggest old taskExecutor to stop itself
             log.debug(
@@ -920,6 +957,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
                     taskExecutorResourceId.getStringWithMetadata());
 
             // remove old task manager registration from slot manager
+            /**
+             * 注销老的注册信息
+             */
             slotManager.unregisterTaskManager(
                     oldRegistration.getInstanceID(),
                     new ResourceManagerException(
@@ -928,9 +968,11 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
                                     taskExecutorResourceId.getStringWithMetadata())));
         }
 
+        // 获取WorkerType
         final WorkerType newWorker = workerStarted(taskExecutorResourceId);
 
         String taskExecutorAddress = taskExecutorRegistration.getTaskExecutorAddress();
+        // 正常不会为null
         if (newWorker == null) {
             log.warn(
                     "Discard registration from TaskExecutor {} at ({}) because the framework did "
@@ -939,6 +981,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
                     taskExecutorAddress);
             return new RegistrationResponse.Decline("unrecognized TaskExecutor");
         } else {
+            // 生成注册对象
             WorkerRegistration<WorkerType> registration =
                     new WorkerRegistration<>(
                             taskExecutorGateway,
@@ -952,8 +995,16 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
                     "Registering TaskManager with ResourceID {} ({}) at ResourceManager",
                     taskExecutorResourceId.getStringWithMetadata(),
                     taskExecutorAddress);
+            // 完成注册
             taskExecutors.put(taskExecutorResourceId, registration);
 
+            /**
+             * 注册逻辑完成了
+             */
+
+            /**
+             * 将新注册的TaskExecutor作为一个新的HeartbeatTarget，加入心跳目标对象集合
+             */
             taskManagerHeartbeatManager.monitorTarget(
                     taskExecutorResourceId,
                     new HeartbeatTarget<Void>() {
@@ -965,10 +1016,17 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
                         @Override
                         public void requestHeartbeat(ResourceID resourceID, Void payload) {
+                            /**
+                             * RPC请求
+                             * 给TaskExecutor 发送心跳
+                             */
                             taskExecutorGateway.heartbeatFromResourceManager(resourceID);
                         }
                     });
 
+            /**
+             * 给从节点的响应
+             */
             return new TaskExecutorRegistrationSuccess(
                     registration.getInstanceID(), resourceId, clusterInformation);
         }
@@ -1153,6 +1211,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
     public void grantLeadership(final UUID newLeaderSessionID) {
         final CompletableFuture<Boolean> acceptLeadershipFuture =
                 clearStateFuture.thenComposeAsync(
+                        /**
+                         * 当前的resourcemanager竞选成功
+                         * 进行回调执行tryAcceptLeadership
+                         */
                         (ignored) -> tryAcceptLeadership(newLeaderSessionID),
                         getUnfencedMainThreadExecutor());
 
@@ -1192,6 +1254,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
             setFencingToken(newResourceManagerId);
 
+            /**
+             * 启动服务
+              */
             startServicesOnLeadership();
 
             return prepareLeadershipAsync().thenApply(ignored -> true);
@@ -1201,8 +1266,11 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
     }
 
     private void startServicesOnLeadership() {
+
+        // 启动心跳服务
         startHeartbeatServices();
 
+        // 在ResourceManager中用来管理所有的TaskManager汇报和注册的Slot的
         slotManager.start(getFencingToken(), getMainThreadExecutor(), new ResourceActionsImpl());
 
         onLeadership();
@@ -1232,6 +1300,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
     }
 
     private void startHeartbeatServices() {
+        // resourceManager 与 taskManager
         taskManagerHeartbeatManager =
                 heartbeatServices.createHeartbeatManagerSender(
                         resourceId,
@@ -1239,6 +1308,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
                         getMainThreadExecutor(),
                         log);
 
+        // resourceManager 与 jobManager 并非主节点的 JobManager  而是JobMaster
         jobManagerHeartbeatManager =
                 heartbeatServices.createHeartbeatManagerSender(
                         resourceId,

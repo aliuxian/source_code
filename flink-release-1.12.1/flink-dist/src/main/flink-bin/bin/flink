@@ -37,7 +37,7 @@ done
 bin=`dirname "$target"`
 
 # get flink config
-. "$bin"/config.sh
+. "$bin"/config.shCliFrontend
 
 if [ "$FLINK_IDENT_STRING" = "" ]; then
         FLINK_IDENT_STRING="$USER"
@@ -51,5 +51,6 @@ log_setting=(-Dlog.file="$log" -Dlog4j.configuration=file:"$FLINK_CONF_DIR"/log4
 # Add Client-specific JVM options
 FLINK_ENV_JAVA_OPTS="${FLINK_ENV_JAVA_OPTS} ${FLINK_ENV_JAVA_OPTS_CLI}"
 
+# flink run最终的执行命令
 # Add HADOOP_CLASSPATH to allow the usage of Hadoop file systems
 exec $JAVA_RUN $JVM_ARGS $FLINK_ENV_JAVA_OPTS "${log_setting[@]}" -classpath "`manglePathList "$CC_CLASSPATH:$INTERNAL_HADOOP_CLASSPATHS"`" org.apache.flink.client.cli.CliFrontend "$@"

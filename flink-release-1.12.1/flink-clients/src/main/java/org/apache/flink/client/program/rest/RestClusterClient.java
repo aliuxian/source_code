@@ -162,12 +162,18 @@ public class RestClusterClient<T> implements ClusterClient<T> {
     private ScheduledExecutorService retryExecutorService;
 
     public RestClusterClient(Configuration config, T clusterId) throws Exception {
+        /**
+         * 创建高可用服务
+         * HighAvailabilityServicesUtils.createClientHAService(config)
+         * 一般高可用都是基于zookeeper的，：ZooKeeperClientHAServices
+         */
         this(config, clusterId, HighAvailabilityServicesUtils.createClientHAService(config));
     }
 
     public RestClusterClient(
             Configuration config, T clusterId, ClientHighAvailabilityServices clientHAServices)
             throws Exception {
+        // restClient参数的值是null
         this(config, null, clusterId, new ExponentialWaitStrategy(10L, 2000L), clientHAServices);
     }
 
@@ -201,6 +207,9 @@ public class RestClusterClient<T> implements ClusterClient<T> {
         if (restClient != null) {
             this.restClient = restClient;
         } else {
+            /**
+             * 内部创建netty客户端
+             */
             this.restClient =
                     new RestClient(
                             restClusterClientConfiguration.getRestClientConfiguration(),
@@ -212,14 +221,27 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 
         this.clientHAServices = checkNotNull(clientHAServices);
 
+        /**
+         * webMonitorRetrievalService ：
+         * DefaultLeaderRetrievalService
+         */
         this.webMonitorRetrievalService = clientHAServices.getClusterRestEndpointLeaderRetriever();
         this.retryExecutorService =
                 Executors.newSingleThreadScheduledExecutor(
                         new ExecutorThreadFactory("Flink-RestClusterClient-Retry"));
+        /**
+         * 监听服务端 webMonitorEndpoint的地址信息
+         */
         startLeaderRetrievers();
     }
 
     private void startLeaderRetrievers() throws Exception {
+        /**
+         * webMonitorRetrievalService =》 DefaultLeaderRetrievalService
+         *
+         * webMonitorLeaderRetriever =》 LeaderRetriever
+         * 监听到地址发生改变之后就会回调LeaderRetriever的notifyLeaderAddress方法
+         */
         this.webMonitorRetrievalService.start(webMonitorLeaderRetriever);
     }
 
@@ -293,6 +315,13 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 
     @Override
     public CompletableFuture<JobID> submitJob(@Nonnull JobGraph jobGraph) {
+        /**
+         *  把JobGraph持久化到磁盘文件  形成 jobGraphFile
+         *          文件前缀： flink-jobgraph
+         *          文件后缀： .bin
+         * 最后提交的就是这个文件。
+         * 在JobManager中由JobSubmitHandler来处理作业提交的逻辑，首先就是将这个文件恢复为JobGraph
+         */
         CompletableFuture<java.nio.file.Path> jobGraphFileFuture =
                 CompletableFuture.supplyAsync(
                         () -> {
@@ -312,6 +341,9 @@ public class RestClusterClient<T> implements ClusterClient<T> {
                         },
                         executorService);
 
+        /**
+         * 将jobGraphFile以及作业依赖的jar文件等添加到一个待上传的文件集合中
+         */
         CompletableFuture<Tuple2<JobSubmitRequestBody, Collection<FileUpload>>> requestFuture =
                 jobGraphFileFuture.thenApply(
                         jobGraphFile -> {
@@ -358,12 +390,18 @@ public class RestClusterClient<T> implements ClusterClient<T> {
                                 }
                             }
 
+                            /**
+                             * 为任务创建一个请求体，包括jobGraphFile 以及 依赖的jar包等
+                             */
                             final JobSubmitRequestBody requestBody =
                                     new JobSubmitRequestBody(
                                             jobGraphFile.getFileName().toString(),
                                             jarFileNames,
                                             artifactFileNames);
 
+                            /**
+                             * Tuple2 ： requestBody    fileToUpload
+                             */
                             return Tuple2.of(
                                     requestBody, Collections.unmodifiableCollection(filesToUpload));
                         });
@@ -371,6 +409,9 @@ public class RestClusterClient<T> implements ClusterClient<T> {
         final CompletableFuture<JobSubmitResponseBody> submissionFuture =
                 requestFuture.thenCompose(
                         requestAndFileUploads ->
+                                /**
+                                 * 真正的提交逻辑（这是可重试的）
+                                 */
                                 sendRetriableRequest(
                                         JobSubmitHeaders.getInstance(),
                                         EmptyMessageParameters.getInstance(),
@@ -757,23 +798,27 @@ public class RestClusterClient<T> implements ClusterClient<T> {
                 retryPredicate);
     }
 
-    private <
-                    M extends MessageHeaders<R, P, U>,
-                    U extends MessageParameters,
-                    R extends RequestBody,
-                    P extends ResponseBody>
-            CompletableFuture<P> sendRetriableRequest(
-                    M messageHeaders,
-                    U messageParameters,
-                    R request,
-                    Collection<FileUpload> filesToUpload,
-                    Predicate<Throwable> retryPredicate) {
+    private <M extends MessageHeaders<R, P, U>,
+            U extends MessageParameters,
+            R extends RequestBody,
+            P extends ResponseBody> CompletableFuture<P> sendRetriableRequest(
+            M messageHeaders,
+            U messageParameters,
+            R request,
+            Collection<FileUpload> filesToUpload,
+            Predicate<Throwable> retryPredicate) {
         return retry(
                 () ->
                         getWebMonitorBaseUrl()
                                 .thenCompose(
+                                        /**
+                                         * 提交给WebMonitorEndpoint
+                                         */
                                         webMonitorBaseUrl -> {
                                             try {
+                                                /**
+                                                 * 提交给WebMonitorEndpoint，有JobSubmitHandler来处理
+                                                 */
                                                 return restClient.sendRequest(
                                                         webMonitorBaseUrl.getHost(),
                                                         webMonitorBaseUrl.getPort(),

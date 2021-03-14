@@ -34,6 +34,10 @@ public class TaskExecutorToServiceAdapter implements TaskManagerRunner.TaskExecu
 
     @Override
     public void start() {
+        /**
+         * 由于TaskExecutor本身就是一个endpoint，所以调用start方法之后就是启动自己内部的rpc服务
+         * 会给自己发一个start指令，然后执行onStart方法
+         */
         taskExecutor.start();
     }
 

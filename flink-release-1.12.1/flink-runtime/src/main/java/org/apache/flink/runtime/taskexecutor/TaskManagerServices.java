@@ -263,12 +263,21 @@ public class TaskManagerServices {
         // pre-start checks
         checkTempDirs(taskManagerServicesConfiguration.getTmpDirPaths());
 
+        /**
+         * 事件分发器
+         */
         final TaskEventDispatcher taskEventDispatcher = new TaskEventDispatcher();
 
         // start the I/O manager, it will create some temp directories.
+        /**
+         *
+         */
         final IOManager ioManager =
                 new IOManagerAsync(taskManagerServicesConfiguration.getTmpDirPaths());
 
+        /**
+         * shuffle的执行环境
+         */
         final ShuffleEnvironment<?, ?> shuffleEnvironment =
                 createShuffleEnvironment(
                         taskManagerServicesConfiguration,
@@ -277,6 +286,9 @@ public class TaskManagerServices {
                         ioExecutor);
         final int listeningDataPort = shuffleEnvironment.start();
 
+        /**
+         * State管理
+         */
         final KvStateService kvStateService =
                 KvStateService.fromConfiguration(taskManagerServicesConfiguration);
         kvStateService.start();
@@ -291,8 +303,14 @@ public class TaskManagerServices {
                                 ? taskManagerServicesConfiguration.getExternalDataPort()
                                 : listeningDataPort);
 
+        /**
+         * 广播变量
+         */
         final BroadcastVariableManager broadcastVariableManager = new BroadcastVariableManager();
 
+        /**
+         * TaskExecutor的内部最重要的就是TaskSlotTable
+         */
         final TaskSlotTable<Task> taskSlotTable =
                 createTaskSlotTable(
                         taskManagerServicesConfiguration.getNumberOfSlots(),
@@ -303,6 +321,9 @@ public class TaskManagerServices {
 
         final JobTable jobTable = DefaultJobTable.create();
 
+        /**
+         * 监控JobMaster地址
+         */
         final JobLeaderService jobLeaderService =
                 new DefaultJobLeaderService(
                         unresolvedTaskManagerLocation,
@@ -342,6 +363,9 @@ public class TaskManagerServices {
                                 failOnJvmMetaspaceOomError ? fatalErrorHandler : null,
                                 checkClassLoaderLeak));
 
+        /**
+         * TaskManagerServices为TaskExecutor提供服务
+         */
         return new TaskManagerServices(
                 unresolvedTaskManagerLocation,
                 taskManagerServicesConfiguration.getManagedMemorySize().getBytes(),

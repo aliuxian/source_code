@@ -618,6 +618,9 @@ public abstract class SchedulerBase implements SchedulerNG {
         mainThreadExecutor.assertRunningInMainThread();
         registerJobMetrics();
         startAllOperatorCoordinators();
+        /**
+         *
+         */
         startSchedulingInternal();
     }
 

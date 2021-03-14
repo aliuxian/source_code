@@ -64,6 +64,9 @@ import java.util.stream.Collectors;
 public class TaskSlot<T extends TaskSlotPayload> implements AutoCloseableAsync {
     private static final Logger LOG = LoggerFactory.getLogger(TaskSlot.class);
 
+    /**
+     * slot的index
+     */
     /** Index of the task slot. */
     private final int index;
 
@@ -78,9 +81,15 @@ public class TaskSlot<T extends TaskSlotPayload> implements AutoCloseableAsync {
     /** State of this slot. */
     private TaskSlotState state;
 
+    /**
+     * 这个Slot所属的Job
+     */
     /** Job id to which the slot has been allocated. */
     private final JobID jobId;
 
+    /**
+     * 分配ID
+     */
     /** Allocation id of this slot. */
     private final AllocationID allocationId;
 

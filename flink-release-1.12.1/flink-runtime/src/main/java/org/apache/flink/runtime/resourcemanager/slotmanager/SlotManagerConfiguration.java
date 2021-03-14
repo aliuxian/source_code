@@ -125,7 +125,11 @@ public class SlotManagerConfiguration {
                     e);
         }
 
+        // Slot申请超时时间，默认5分钟
         final Time slotRequestTimeout = getSlotRequestTimeout(configuration);
+        // taskManager 超时时间 30s
+        // standalone模式下不会有超时这种情况
+        // 这里的超时主要是针对flink on yarn  在session模式下
         final Time taskManagerTimeout =
                 Time.milliseconds(
                         configuration.getLong(ResourceManagerOptions.TASK_MANAGER_TIMEOUT));
@@ -141,8 +145,10 @@ public class SlotManagerConfiguration {
                         ? LeastUtilizationSlotMatchingStrategy.INSTANCE
                         : AnyMatchingSlotMatchingStrategy.INSTANCE;
 
+        // 每个taskManager最小的slot数量，默认是1
         int numSlotsPerWorker = configuration.getInteger(TaskManagerOptions.NUM_TASK_SLOTS);
 
+        // 最大的slot数量  Integer.MAX_VALUE
         int maxSlotNum = configuration.getInteger(ResourceManagerOptions.MAX_SLOT_NUM);
 
         int redundantTaskManagerNum =

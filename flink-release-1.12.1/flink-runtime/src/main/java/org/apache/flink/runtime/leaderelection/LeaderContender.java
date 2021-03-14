@@ -21,6 +21,19 @@ package org.apache.flink.runtime.leaderelection;
 import java.util.UUID;
 
 /**
+ *
+ * LeaderContender 是一个竞选角色
+ * LeaderElectionService.start()方法开始竞选
+ *      竞选成功调用 LeaderElectionService 的 isLeader() 方法  内部调用leaderContender的 grantLeaderShip方法
+ *      竞选失败调用 LeaderElectionService 的 notLeader() 方法
+ *
+ * WebMonitorEndpoint
+ * ResourceManager
+ * DispatcherRunner
+ * 都是LeaderContender
+ *
+ *
+ *
  * Interface which has to be implemented to take part in the leader election process of the {@link
  * LeaderElectionService}.
  */

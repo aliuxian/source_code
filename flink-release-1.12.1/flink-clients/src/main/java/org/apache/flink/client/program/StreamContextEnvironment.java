@@ -64,7 +64,11 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
             final ClassLoader userCodeClassLoader,
             final boolean enforceSingleJobExecution,
             final boolean suppressSysout) {
+        /**
+         *
+         */
         super(executorServiceLoader, configuration, userCodeClassLoader);
+
         this.suppressSysout = suppressSysout;
         this.enforceSingleJobExecution = enforceSingleJobExecution;
 
@@ -162,6 +166,9 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
                     Configuration mergedConfiguration = new Configuration();
                     mergedConfiguration.addAll(configuration);
                     mergedConfiguration.addAll(conf);
+                    /**
+                     * 创建StreamExecutionEnvironment
+                     */
                     return new StreamContextEnvironment(
                             executorServiceLoader,
                             mergedConfiguration,

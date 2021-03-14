@@ -76,6 +76,9 @@ public class TaskExecutorToResourceManagerConnection
     protected RetryingRegistration<
                     ResourceManagerId, ResourceManagerGateway, TaskExecutorRegistrationSuccess>
             generateRegistration() {
+        /**
+         * ResourceManagerRegistration 真正的注册对象
+         */
         return new TaskExecutorToResourceManagerConnection.ResourceManagerRegistration(
                 log,
                 rpcService,
@@ -92,6 +95,10 @@ public class TaskExecutorToResourceManagerConnection
                 getTargetAddress(),
                 success.getRegistrationId());
 
+        /**
+         * registrationListener  的具体实现是：
+         *      ResourceManagerManagerRegistrationListener
+         */
         registrationListener.onRegistrationSuccess(this, success);
     }
 
@@ -99,6 +106,9 @@ public class TaskExecutorToResourceManagerConnection
     protected void onRegistrationFailure(Throwable failure) {
         log.info("Failed to register at resource manager {}.", getTargetAddress(), failure);
 
+        /**
+         * registrationListener 是 ResourceManagerRegistrationListener
+         */
         registrationListener.onRegistrationFailure(failure);
     }
 
@@ -139,6 +149,7 @@ public class TaskExecutorToResourceManagerConnection
                 throws Exception {
 
             Time timeout = Time.milliseconds(timeoutMillis);
+            // RPC请求
             return resourceManager.registerTaskExecutor(taskExecutorRegistration, timeout);
         }
     }

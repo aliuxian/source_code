@@ -114,6 +114,7 @@ public class HighAvailabilityServicesUtils {
                 BlobStoreService blobStoreService =
                         BlobUtils.createBlobStoreFromConfig(configuration);
 
+                // 内部封装了一个zk的客户端 ==》 基于Curator
                 return new ZooKeeperHaServices(
                         ZooKeeperUtils.startCuratorFramework(configuration),
                         executor,

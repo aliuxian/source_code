@@ -39,6 +39,7 @@ public class HeartbeatServices {
     protected final long heartbeatTimeout;
 
     public HeartbeatServices(long heartbeatInterval, long heartbeatTimeout) {
+        // 对时间的合法性进行验证
         Preconditions.checkArgument(
                 0L < heartbeatInterval, "The heartbeat interval must be larger than 0.");
         Preconditions.checkArgument(
@@ -106,8 +107,10 @@ public class HeartbeatServices {
      * @return An HeartbeatServices instance created from the given configuration
      */
     public static HeartbeatServices fromConfiguration(Configuration configuration) {
+        // 心跳间隔时间 10s
         long heartbeatInterval = configuration.getLong(HeartbeatManagerOptions.HEARTBEAT_INTERVAL);
 
+        // 心跳超时时间  50s
         long heartbeatTimeout = configuration.getLong(HeartbeatManagerOptions.HEARTBEAT_TIMEOUT);
 
         return new HeartbeatServices(heartbeatInterval, heartbeatTimeout);

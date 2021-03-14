@@ -92,7 +92,11 @@ public class HeartbeatMonitorImpl<O> implements HeartbeatMonitor<O>, Runnable {
 
     @Override
     public void reportHeartbeat() {
+        /**
+         * 更新最新一次的心跳时间
+         */
         lastHeartbeat = System.currentTimeMillis();
+        // 重置超时时间
         resetHeartbeatTimeout(heartbeatTimeoutIntervalMs);
     }
 
@@ -118,12 +122,21 @@ public class HeartbeatMonitorImpl<O> implements HeartbeatMonitor<O>, Runnable {
 
     void resetHeartbeatTimeout(long heartbeatTimeout) {
         if (state.get() == State.RUNNING) {
+            /**
+             * 将当前这次超时任务取消
+             */
             cancelTimeout();
 
+            /**
+             * 重新启动一次超时任务，因为刚刚接收到了新的心跳，所以超时任务需要重置了，从当前这个心跳开始算时间
+             */
             futureTimeout =
                     scheduledExecutor.schedule(this, heartbeatTimeout, TimeUnit.MILLISECONDS);
 
-            // Double check for concurrent accesses (e.g. a firing of the scheduled future)
+            /**
+             * 双重检查机制
+             */
+            // Double check for concurrent accesses (e.g.  a firing of the scheduled future)
             if (state.get() != State.RUNNING) {
                 cancelTimeout();
             }

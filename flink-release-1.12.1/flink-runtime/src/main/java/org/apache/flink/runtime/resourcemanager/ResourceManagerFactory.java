@@ -61,6 +61,7 @@ public abstract class ResourceManagerFactory<T extends ResourceIDRetrievable> {
         final SlotManagerMetricGroup slotManagerMetricGroup =
                 SlotManagerMetricGroup.create(metricRegistry, hostname);
 
+        // 创建resourceManagerRuntimeServices   并且初始化一些配置
         final ResourceManagerRuntimeServices resourceManagerRuntimeServices =
                 createResourceManagerRuntimeServices(
                         configuration,
@@ -68,6 +69,7 @@ public abstract class ResourceManagerFactory<T extends ResourceIDRetrievable> {
                         highAvailabilityServices,
                         slotManagerMetricGroup);
 
+        // 实现类是StandaloneResourceManagerFactory
         return createResourceManager(
                 configuration,
                 resourceId,

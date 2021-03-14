@@ -71,17 +71,28 @@ public class HeartbeatManagerSenderImpl<I, O> extends HeartbeatManagerImpl<I, O>
                 heartbeatMonitorFactory);
 
         this.heartbeatPeriod = heartbeatPeriod;
+        /**
+         * 成功创建HeartbeatManagerSender之后，立即进行一次调度
+         * schedule方法的第一个参数是一个Runnable对象，在调用schedule的时候就会去调用它的run方法
+         */
         mainThreadExecutor.schedule(this, 0L, TimeUnit.MILLISECONDS);
     }
 
     @Override
     public void run() {
         if (!stopped) {
+
+            /**
+             * 发送心跳RPC请求
+             */
             log.debug("Trigger heartbeat request.");
             for (HeartbeatMonitor<O> heartbeatMonitor : getHeartbeatTargets().values()) {
                 requestHeartbeat(heartbeatMonitor);
             }
 
+            /**
+             * 这里就是又会继续调用this的run方法，实现了心跳的无限循环，默认是10s
+             */
             getMainThreadExecutor().schedule(this, heartbeatPeriod, TimeUnit.MILLISECONDS);
         }
     }
@@ -90,6 +101,9 @@ public class HeartbeatManagerSenderImpl<I, O> extends HeartbeatManagerImpl<I, O>
         O payload = getHeartbeatListener().retrievePayload(heartbeatMonitor.getHeartbeatTargetId());
         final HeartbeatTarget<O> heartbeatTarget = heartbeatMonitor.getHeartbeatTarget();
 
+        /**
+         * requestHeartbeat  这里调用的是 ResourceManager 的 registerTaskExecutorInternal方法中的实现
+         */
         heartbeatTarget.requestHeartbeat(getOwnResourceID(), payload);
     }
 }

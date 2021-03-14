@@ -63,6 +63,8 @@ public class ResourceManagerRuntimeServicesConfiguration {
             Configuration configuration, WorkerResourceSpecFactory defaultWorkerResourceSpecFactory)
             throws ConfigurationException {
 
+        // Job超时时间，默认5分钟
+        // Job提交时间超过5分钟没有成功，就超时了
         final String strJobTimeout = configuration.getString(ResourceManagerOptions.JOB_TIMEOUT);
         final Time jobTimeout;
 
@@ -79,6 +81,8 @@ public class ResourceManagerRuntimeServicesConfiguration {
 
         final WorkerResourceSpec defaultWorkerResourceSpec =
                 defaultWorkerResourceSpecFactory.createDefaultWorkerResourceSpec(configuration);
+
+        // SlotManager相关的配置
         final SlotManagerConfiguration slotManagerConfiguration =
                 SlotManagerConfiguration.fromConfiguration(
                         configuration, defaultWorkerResourceSpec);

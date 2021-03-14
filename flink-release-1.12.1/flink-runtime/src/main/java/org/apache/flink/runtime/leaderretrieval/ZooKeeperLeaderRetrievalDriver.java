@@ -82,7 +82,13 @@ public class ZooKeeperLeaderRetrievalDriver
             LeaderRetrievalEventHandler leaderRetrievalEventHandler,
             FatalErrorHandler fatalErrorHandler)
             throws Exception {
+        // zk的客户端   CuratorFramework是zk的一个API框架
         this.client = checkNotNull(client, "CuratorFramework client");
+        /**
+         * NodeCache 就是 Curator对zk的Watcher的封装
+         *
+         * 去监听retrievalPath这个路径  也就是 存储ResourceManager的地址的地方
+         */
         this.cache = new NodeCache(client, retrievalPath);
         this.retrievalPath = checkNotNull(retrievalPath);
         this.leaderRetrievalEventHandler = checkNotNull(leaderRetrievalEventHandler);
@@ -90,6 +96,10 @@ public class ZooKeeperLeaderRetrievalDriver
 
         client.getUnhandledErrorListenable().addListener(this);
         cache.getListenable().addListener(this);
+        /**
+         * 开启监听，NodeCache监听的是znode的数据变化，
+         * 所以当cache响应的时候，则会回调NodeCacheListener的nodeChanged方法， 在这的实现在ZookeeperLeaderRetrievalDriver中
+         */
         cache.start();
 
         client.getConnectionStateListenable().addListener(connectionStateListener);
@@ -119,6 +129,10 @@ public class ZooKeeperLeaderRetrievalDriver
 
     @Override
     public void nodeChanged() {
+
+        /**
+         * 从zk中拿到ResourceManager中的信息
+         */
         retrieveLeaderInformationFromZooKeeper();
     }
 
@@ -128,6 +142,7 @@ public class ZooKeeperLeaderRetrievalDriver
 
             final ChildData childData = cache.getCurrentData();
 
+            // 不为null  表示有数据
             if (childData != null) {
                 final byte[] data = childData.getData();
                 if (data != null && data.length > 0) {
@@ -136,6 +151,10 @@ public class ZooKeeperLeaderRetrievalDriver
 
                     final String leaderAddress = ois.readUTF();
                     final UUID leaderSessionID = (UUID) ois.readObject();
+                    /**
+                     * 回调监听器的notifyLeaderAddress方法
+                     * 这里的监听器是ResourceManagerLeaderListener
+                     */
                     leaderRetrievalEventHandler.notifyLeaderAddress(
                             LeaderInformation.known(leaderSessionID, leaderAddress));
                     return;

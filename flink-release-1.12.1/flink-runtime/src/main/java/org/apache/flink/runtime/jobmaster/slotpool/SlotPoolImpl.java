@@ -223,12 +223,20 @@ public class SlotPoolImpl implements SlotPool {
         this.jobManagerAddress = newJobManagerAddress;
         this.componentMainThreadExecutor = componentMainThreadExecutor;
 
+        /**
+         * 定时服务1
+         */
         scheduleRunAsync(this::checkIdleSlot, idleSlotTimeout);
+        /**
+         * 定时服务2
+         */
         scheduleRunAsync(this::checkBatchSlotTimeout, batchSlotTimeout);
 
         if (log.isDebugEnabled()) {
-            scheduleRunAsync(
-                    this::scheduledLogStatus, STATUS_LOG_INTERVAL_MS, TimeUnit.MILLISECONDS);
+            /**
+             * 定时服务3
+             */
+            scheduleRunAsync(this::scheduledLogStatus, STATUS_LOG_INTERVAL_MS, TimeUnit.MILLISECONDS);
         }
     }
 
