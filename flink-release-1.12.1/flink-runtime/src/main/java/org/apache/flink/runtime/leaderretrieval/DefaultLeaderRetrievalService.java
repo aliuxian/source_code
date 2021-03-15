@@ -92,10 +92,12 @@ public class DefaultLeaderRetrievalService
 
         synchronized (lock) {
 
-            // ！！
+            // ！！TaskManager启动： ResourceManagerLeaderListener
             leaderListener = listener;
 
             /**
+             * leaderRetrievalDriverFactory = ZooKeeperLeaderRetrievalDriverFactory
+             *
              * 创建LeaderRetrievalDriver对象
              * 1.12 开始做的封装，以前是没有的，直接调用的NodeCache的start方法，执行监听
              *
@@ -154,6 +156,9 @@ public class DefaultLeaderRetrievalService
                     lastLeaderAddress = newLeaderAddress;
                     lastLeaderSessionID = newLeaderSessionID;
 
+                    /**
+                     *
+                     */
                     // Notify the listener only when the leader is truly changed.
                     leaderListener.notifyLeaderAddress(newLeaderAddress, newLeaderSessionID);
                 }

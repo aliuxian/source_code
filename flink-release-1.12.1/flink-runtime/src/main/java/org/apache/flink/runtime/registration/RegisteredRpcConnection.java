@@ -163,6 +163,12 @@ public abstract class RegisteredRpcConnection<
     protected abstract RetryingRegistration<F, G, S> generateRegistration();
 
     /** This method handle the Registration Response. */
+    /**
+     *
+     * TaskManager启动流程：
+     * TaskExecutorToResourceManagerConnection
+     *
+     */
     protected abstract void onRegistrationSuccess(S success);
 
     /** This method handle the Registration failure. */
