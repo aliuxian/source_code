@@ -1203,10 +1203,14 @@ public class DataStream<T> {
         transformation.getOutputType();
 
         /**
-         * 创建一个OneInputTransformation对象
          *
-         * 在创建DataStream的时候将StreamSource封装在了一个Transformation中，
+         *
+         * readTextFile()的流程中(addSource中):
+         * 在创建DataStream的时候将StreamSource封装在了一个Transformation(LegacySourceTransformation)中，
          * 并赋值给了DataStream的transformation字段
+         *
+         *
+         * 创建一个OneInputTransformation对象 将之前
          */
         OneInputTransformation<T, R> resultTransform =
                 new OneInputTransformation<>(

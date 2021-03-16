@@ -236,6 +236,9 @@ public class CliFrontend {
         final CustomCommandLine activeCommandLine =
                 validateAndGetActiveCommandLine(checkNotNull(commandLine));
 
+        /**
+         * 里面会拿到main方法入口
+         */
         final ProgramOptions programOptions = ProgramOptions.create(commandLine);
 
         /**
@@ -248,9 +251,6 @@ public class CliFrontend {
 
         LOG.debug("Effective executor configuration: {}", effectiveConfiguration);
 
-        /**
-         * PackagedProgram  里面会拿到main方法
-         */
         final PackagedProgram program = getPackagedProgram(programOptions, effectiveConfiguration);
 
         try {
@@ -1062,6 +1062,9 @@ public class CliFrontend {
         String action = args[0];
 
         // remove action from parameters
+        /**
+         * 命令行参数
+         */
         final String[] params = Arrays.copyOfRange(args, 1, args.length);
 
         try {
