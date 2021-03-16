@@ -403,6 +403,9 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
             LOG.info("Cannot determine the maximum number of open file descriptors");
         }
 
+        /**
+         * biglau
+         */
         runTaskManagerSecurely(args);
     }
 
@@ -473,7 +476,7 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
                 .runSecured(
                         () -> {
                             /**
-                             * call方法，runSecured会调用call方法
+                             * call方法的实现，runSecured会调用call方法
                              */
                             runTaskManager(configuration, pluginManager);
                             return null;

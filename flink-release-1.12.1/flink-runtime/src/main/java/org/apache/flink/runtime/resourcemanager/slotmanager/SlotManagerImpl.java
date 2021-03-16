@@ -559,6 +559,9 @@ public class SlotManagerImpl implements SlotManager {
             LOG.debug("Received slot report from instance {}: {}.", instanceId, slotReport);
 
             for (SlotStatus slotStatus : slotReport) {
+                /**
+                 *
+                 */
                 updateSlot(
                         slotStatus.getSlotID(),
                         slotStatus.getAllocationID(),
@@ -757,13 +760,26 @@ public class SlotManagerImpl implements SlotManager {
         if (pendingTaskManagerSlot == null) {
             updateSlot(slotId, allocationId, jobId);
         } else {
+            /**
+             * 将其从pending状态集合中移除
+             */
             pendingSlots.remove(pendingTaskManagerSlot.getTaskManagerSlotId());
+            /**
+             * 获取这个Slot对应的PendingSlotRequest
+             */
             final PendingSlotRequest assignedPendingSlotRequest =
                     pendingTaskManagerSlot.getAssignedPendingSlotRequest();
 
             if (assignedPendingSlotRequest == null) {
+                /**
+                 * 如果没有请求，将Slot变为free状态
+                 */
                 handleFreeSlot(slot);
             } else {
+                /**
+                 * 有请求，将该Slot的状态变为allocate状态
+                 *      RPC请求给对应TaskExecutor
+                 */
                 assignedPendingSlotRequest.unassignPendingTaskManagerSlot();
                 allocateSlot(slot, assignedPendingSlotRequest);
             }

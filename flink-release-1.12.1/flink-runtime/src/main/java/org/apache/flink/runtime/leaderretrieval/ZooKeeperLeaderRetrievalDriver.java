@@ -153,7 +153,8 @@ public class ZooKeeperLeaderRetrievalDriver
                     final UUID leaderSessionID = (UUID) ois.readObject();
                     /**
                      * 回调监听器的notifyLeaderAddress方法
-                     * 这里的监听器是ResourceManagerLeaderListener
+                     * 这里的监听器是
+                     * DefaultLeaderRetrievalService中保存的：ResourceManagerLeaderListener
                      */
                     leaderRetrievalEventHandler.notifyLeaderAddress(
                             LeaderInformation.known(leaderSessionID, leaderAddress));

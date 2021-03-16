@@ -149,7 +149,7 @@ public abstract class RetryingRegistration<
              *
              *
              *
-             * rpcGateway就是代理
+             *
              */
             if (FencedRpcGateway.class.isAssignableFrom(targetType)) {
                 rpcGatewayFuture =
@@ -173,6 +173,7 @@ public abstract class RetryingRegistration<
                             (G rpcGateway) -> {
                                 log.info("Resolved {} address, beginning registration", targetName);
                                 register(
+                                        // rpcGateway就是服务端代理
                                         rpcGateway,
                                         1,
                                         retryingRegistrationConfiguration
@@ -266,7 +267,7 @@ public abstract class RetryingRegistration<
                                         completionFuture.complete(Tuple2.of(gateway, success));
                                     } else {
                                         /**
-                                         * 注册失败  被拒绝或者为知原因
+                                         * 注册失败  被拒绝或者未知原因
                                          */
                                         // registration refused or unknown
                                         if (result instanceof RegistrationResponse.Decline) {
