@@ -495,6 +495,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
          */
         if (workerTypeWorkerRegistration.getInstanceID().equals(taskManagerRegistrationId)) {
 
+            /**
+             * biglau
+             * 逻辑：registerTaskManager
+             */
             if (slotManager.registerTaskManager(workerTypeWorkerRegistration, slotReport)) {
                 onWorkerRegistered(workerTypeWorkerRegistration.getWorker());
             }
