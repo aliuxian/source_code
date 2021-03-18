@@ -111,9 +111,15 @@ public class ReduceContextImpl<KEYIN,VALUEIN,KEYOUT,VALUEOUT>
 
   /** Start processing next unique key. */
   public boolean nextKey() throws IOException,InterruptedException {
+    /**
+     * 文件还没扫描结束，并且 读到的key和当前正在处理的key是同一个key，那么就继续读
+     */
     while (hasMore && nextKeyIsSame) {
       nextKeyValue();
     }
+    /**
+     * 还有数据，但是读到key不是当前处理的这个key了，
+     */
     if (hasMore) {
       if (inputKeyCounter != null) {
         inputKeyCounter.increment(1);
@@ -129,17 +135,28 @@ public class ReduceContextImpl<KEYIN,VALUEIN,KEYOUT,VALUEOUT>
    */
   @Override
   public boolean nextKeyValue() throws IOException, InterruptedException {
+    /**
+     * 没有数据了，
+     */
     if (!hasMore) {
       key = null;
       value = null;
       return false;
     }
     firstValue = !nextKeyIsSame;
+
+    /**
+     * 获取key
+     */
     DataInputBuffer nextKey = input.getKey();
     currentRawKey.set(nextKey.getData(), nextKey.getPosition(), 
                       nextKey.getLength() - nextKey.getPosition());
     buffer.reset(currentRawKey.getBytes(), 0, currentRawKey.getLength());
     key = keyDeserializer.deserialize(key);
+
+    /**
+     * 获取value
+     */
     DataInputBuffer nextVal = input.getValue();
     buffer.reset(nextVal.getData(), nextVal.getPosition(), nextVal.getLength()
         - nextVal.getPosition());
@@ -149,12 +166,24 @@ public class ReduceContextImpl<KEYIN,VALUEIN,KEYOUT,VALUEOUT>
     currentValueLength = nextVal.getLength() - nextVal.getPosition();
 
     if (isMarked) {
+      /**
+       * 暂时缓存当前读到的key和value，因为下一条数据可能还是这个key，
+       * （reduce拉取文件的时候排序了，所以相同的key会挨在一起）
+       */
       backupStore.write(nextKey, nextVal);
     }
 
+    /**
+     * 读取下一个key，如果能取到，返回true，然后去判断这个key和上一个key是否一致。
+     * 如果没有读到，则直接返回false，然后也会将nextKeyIfSame也置为false
+     */
     hasMore = input.next();
     if (hasMore) {
+      /**
+       * 如果还有，那么继续读取下一条数据的key
+       */
       nextKey = input.getKey();
+      // 判断key上一个key是否是一致的
       nextKeyIsSame = comparator.compare(currentRawKey.getBytes(), 0, 
                                      currentRawKey.getLength(),
                                      nextKey.getData(),
@@ -164,6 +193,11 @@ public class ReduceContextImpl<KEYIN,VALUEIN,KEYOUT,VALUEOUT>
     } else {
       nextKeyIsSame = false;
     }
+    /**
+     * 更新了hasMore    nextKeyIsSame   如果都为true，那么外层循环就会继续执行
+     */
+
+
     inputValueCounter.increment(1);
     return true;
   }

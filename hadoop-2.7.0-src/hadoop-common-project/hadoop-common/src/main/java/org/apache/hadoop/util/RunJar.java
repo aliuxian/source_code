@@ -153,6 +153,9 @@ public class RunJar {
     }
     String mainClassName = null;
 
+    /**
+     * 作业jar包
+     */
     JarFile jarFile;
     try {
       jarFile = new JarFile(fileName);
@@ -161,6 +164,9 @@ public class RunJar {
         .initCause(io);
     }
 
+    /**
+     * 获取主类
+     */
     Manifest manifest = jarFile.getManifest();
     if (manifest != null) {
       mainClassName = manifest.getMainAttributes().getValue("Main-Class");
@@ -218,6 +224,9 @@ public class RunJar {
     String[] newArgs = Arrays.asList(args)
       .subList(firstArg, args.length).toArray(new String[0]);
     try {
+      /**
+       * 执行MR程序的main方法
+       */
       main.invoke(null, new Object[] { newArgs });
     } catch (InvocationTargetException e) {
       throw e.getTargetException();

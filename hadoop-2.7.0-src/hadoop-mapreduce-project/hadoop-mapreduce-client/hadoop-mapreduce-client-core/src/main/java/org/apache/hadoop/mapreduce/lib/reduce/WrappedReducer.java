@@ -102,6 +102,9 @@ public class WrappedReducer<KEYIN, VALUEIN, KEYOUT, VALUEOUT>
     @Override
     public void write(KEYOUT key, VALUEOUT value) throws IOException,
         InterruptedException {
+      /**
+       * reduceContext = ReducerContextImpl  父类 TaskInputOutputContextImpl
+       */
       reduceContext.write(key, value);
     }
 

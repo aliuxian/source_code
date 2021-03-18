@@ -167,25 +167,54 @@ public class LineRecordReader extends RecordReader<LongWritable, Text> {
     return newSize;
   }
 
+  /**
+   * buglau
+   * 真正读取数据的方法
+   * 内容存储在value中，改行的起始偏移量存在key中
+   */
   public boolean nextKeyValue() throws IOException {
+    // 初始化key
     if (key == null) {
       key = new LongWritable();
     }
+    /**
+     * 设置key的值，为什么上来就直接设置key的值，
+     * 因为下面再读取的时候，没读一条之后就会更新一次pos的值，
+     * 所以每次进来，pos的值就是这一次要读的数据的偏移量
+     *
+     * pos += newSize;
+     */
     key.set(pos);
+    // 初始化value
     if (value == null) {
       value = new Text();
     }
+
+    // 读取到的数据的大小
     int newSize = 0;
     // We always read one extra line, which lies outside the upper
     // split limit i.e. (end - 1)
     while (getFilePosition() <= end || in.needAdditionalRecordAfterSplit()) {
       if (pos == 0) {
+        /**
+         * 第一次读数据
+         * 处理UTF-8编码的BOM（Byte Order Mark）
+         */
         newSize = skipUtfByteOrderMark();
       } else {
+        /**
+         * 读取一行数据
+         * 返回值是读取到的数据的大小，具体的内容存到了value中
+         */
         newSize = in.readLine(value, maxLineLength, maxBytesToConsume(pos));
+        // 更新pos，得到下一条数据的offset（key）
         pos += newSize;
       }
 
+      /**
+       * 这次没有读到数据，或者这次读取到的数据量小于maxLineLength，
+       * 表明没有数据了
+       */
       if ((newSize == 0) || (newSize < maxLineLength)) {
         break;
       }
@@ -197,8 +226,18 @@ public class LineRecordReader extends RecordReader<LongWritable, Text> {
     if (newSize == 0) {
       key = null;
       value = null;
+      /**
+       * return false
+       * 前面map的地方就会跳出循环了，mapTask就结束了
+       */
       return false;
     } else {
+      /**
+       * 前面map中:
+       * context.getCurrentKey
+       * context.getCurrentValue
+       * 就会拿到key和value。
+       */
       return true;
     }
   }

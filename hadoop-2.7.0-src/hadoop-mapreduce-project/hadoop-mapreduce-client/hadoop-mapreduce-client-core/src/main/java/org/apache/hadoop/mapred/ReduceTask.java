@@ -386,6 +386,9 @@ public class ReduceTask extends Task {
     RawComparator comparator = job.getOutputValueGroupingComparator();
 
     if (useNewApi) {
+      /**
+       *
+       */
       runNewReducer(job, umbilical, reporter, rIter, comparator, 
                     keyClass, valueClass);
     } else {
@@ -607,10 +610,16 @@ public class ReduceTask extends Task {
     org.apache.hadoop.mapreduce.TaskAttemptContext taskContext =
       new org.apache.hadoop.mapreduce.task.TaskAttemptContextImpl(job,
           getTaskID(), reporter);
+
+    /**
+     * 创建Reducer实例
+     * job.setReducerClass()
+     */
     // make a reducer
     org.apache.hadoop.mapreduce.Reducer<INKEY,INVALUE,OUTKEY,OUTVALUE> reducer =
       (org.apache.hadoop.mapreduce.Reducer<INKEY,INVALUE,OUTKEY,OUTVALUE>)
         ReflectionUtils.newInstance(taskContext.getReducerClass(), job);
+
     org.apache.hadoop.mapreduce.RecordWriter<OUTKEY,OUTVALUE> trackedRW = 
       new NewTrackingRecordWriter<OUTKEY, OUTVALUE>(this, taskContext);
     job.setBoolean("mapred.skip.on", isSkipping());
@@ -624,6 +633,9 @@ public class ReduceTask extends Task {
                                                reporter, comparator, keyClass,
                                                valueClass);
     try {
+      /**
+       *
+       */
       reducer.run(reducerContext);
     } finally {
       trackedRW.close(reducerContext);

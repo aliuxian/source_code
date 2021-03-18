@@ -1279,17 +1279,51 @@ public class Job extends JobContextImpl implements JobContext {
    */
   public void submit() 
          throws IOException, InterruptedException, ClassNotFoundException {
+    /**
+     * 设置当前Job状态
+     */
     ensureState(JobState.DEFINE);
+    /**
+     * 设置启动new API   2.0以前是old API
+     */
     setUseNewAPI();
+
+    /**
+     * 获取提交客户端，连接YARN
+     * ！！！！！
+     * Job =>
+     *      Cluster (cluster)=>
+     *            YARNRunner (client)=>
+     *                  ResourceMgrDelegate (resMgrDelegate)=>
+     *                          YarnClientImpl (client)=>
+     *                                  ApplicationClientProtocol (rmClient)
+     *
+     * rmClient  ResourceManager的代理
+     * 所以最后的作业提交是通过rmClient.submitApplication()
+     */
     connect();
+
+    /**
+     * 获取提交器
+     * ！！！！！！
+     * cluster.getFileSystem()  HDFS
+     * cluster.getClient()   YARNRunner
+     */
     final JobSubmitter submitter = 
         getJobSubmitter(cluster.getFileSystem(), cluster.getClient());
+
     status = ugi.doAs(new PrivilegedExceptionAction<JobStatus>() {
       public JobStatus run() throws IOException, InterruptedException, 
       ClassNotFoundException {
+        /**
+         * 作业提交
+         */
         return submitter.submitJobInternal(Job.this, cluster);
       }
     });
+    /**
+     * 提交成功之后将状态修改为RUNNING
+     */
     state = JobState.RUNNING;
     LOG.info("The url to track the job: " + getTrackingURL());
    }
@@ -1304,9 +1338,17 @@ public class Job extends JobContextImpl implements JobContext {
   public boolean waitForCompletion(boolean verbose
                                    ) throws IOException, InterruptedException,
                                             ClassNotFoundException {
+    /**
+     * Job提交
+     */
     if (state == JobState.DEFINE) {
       submit();
     }
+
+    /**
+     * verbose是waitForCompletion(true)传进来的
+     * 监控Jon执行进度
+     */
     if (verbose) {
       monitorAndPrintJob();
     } else {

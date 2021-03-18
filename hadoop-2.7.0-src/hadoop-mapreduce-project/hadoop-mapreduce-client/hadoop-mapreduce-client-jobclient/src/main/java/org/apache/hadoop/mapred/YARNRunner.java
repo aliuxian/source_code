@@ -280,13 +280,19 @@ public class YARNRunner implements ClientProtocol {
   throws IOException, InterruptedException {
     
     addHistoryToken(ts);
-    
+
+    /**
+     *
+     */
     // Construct necessary information to start the MR AM
     ApplicationSubmissionContext appContext =
       createApplicationSubmissionContext(conf, jobSubmitDir, ts);
 
     // Submit to ResourceManager
     try {
+      /**
+       * resMgrDelegate  ResourceMgrDelegate
+       */
       ApplicationId applicationId =
           resMgrDelegate.submitApplication(appContext);
 
@@ -323,10 +329,16 @@ public class YARNRunner implements ClientProtocol {
   public ApplicationSubmissionContext createApplicationSubmissionContext(
       Configuration jobConf,
       String jobSubmitDir, Credentials ts) throws IOException {
+    /**
+     * 获取ApplicationId
+     */
     ApplicationId applicationId = resMgrDelegate.getApplicationId();
 
     // Setup resource requirements
     Resource capability = recordFactory.newRecordInstance(Resource.class);
+    /**
+     * 设置AM的内存和CPU
+     */
     capability.setMemory(
         conf.getInt(
             MRJobConfig.MR_AM_VMEM_MB, MRJobConfig.DEFAULT_MR_AM_VMEM_MB

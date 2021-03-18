@@ -109,6 +109,9 @@ public class WrappedMapper<KEYIN, VALUEIN, KEYOUT, VALUEOUT>
     @Override
     public void write(KEYOUT key, VALUEOUT value) throws IOException,
         InterruptedException {
+      /**
+       * mapContext  MapContextImpl    其 父类  ： TaskInputOutputContextImpl
+       */
       mapContext.write(key, value);
     }
 

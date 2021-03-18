@@ -379,15 +379,21 @@ public abstract class FileInputFormat<K, V> extends InputFormat<K, V> {
    */
   public List<InputSplit> getSplits(JobContext job) throws IOException {
     StopWatch sw = new StopWatch().start();
+    // minSize 默认 128M
+    // maxSize 默认是 Long.MAX_VALUE
     long minSize = Math.max(getFormatMinSplitSize(), getMinSplitSize(job));
     long maxSize = getMaxSplitSize(job);
 
     // generate splits
+    // 逻辑切片的结果
     List<InputSplit> splits = new ArrayList<InputSplit>();
+
     List<FileStatus> files = listStatus(job);
+
     for (FileStatus file: files) {
       Path path = file.getPath();
       long length = file.getLen();
+      // 文件长度不等于0   表明这个文件是由内容
       if (length != 0) {
         BlockLocation[] blkLocations;
         if (file instanceof LocatedFileStatus) {
@@ -396,19 +402,30 @@ public abstract class FileInputFormat<K, V> extends InputFormat<K, V> {
           FileSystem fs = path.getFileSystem(job.getConfiguration());
           blkLocations = fs.getFileBlockLocations(file, 0, length);
         }
+        // 如果文件可以切分
         if (isSplitable(job, path)) {
           long blockSize = file.getBlockSize();
+          /**
+           * 计算切片大小
+           */
           long splitSize = computeSplitSize(blockSize, minSize, maxSize);
 
           long bytesRemaining = length;
+          // 剩下的文件大小只要大于splitSize的1.1倍，就继续执行逻辑切片
           while (((double) bytesRemaining)/splitSize > SPLIT_SLOP) {
             int blkIndex = getBlockIndex(blkLocations, length-bytesRemaining);
+
+            // 切片
             splits.add(makeSplit(path, length-bytesRemaining, splitSize,
                         blkLocations[blkIndex].getHosts(),
                         blkLocations[blkIndex].getCachedHosts()));
+            // 剩下文件
             bytesRemaining -= splitSize;
           }
 
+          /**
+           * 如果剩余的文件大小不到一个分片*1.1大小，那么就将剩下的作为一个分片
+           */
           if (bytesRemaining != 0) {
             int blkIndex = getBlockIndex(blkLocations, length-bytesRemaining);
             splits.add(makeSplit(path, length-bytesRemaining, bytesRemaining,
@@ -416,11 +433,16 @@ public abstract class FileInputFormat<K, V> extends InputFormat<K, V> {
                        blkLocations[blkIndex].getCachedHosts()));
           }
         } else { // not splitable
+          // 不能切分
           splits.add(makeSplit(path, 0, length, blkLocations[0].getHosts(),
                       blkLocations[0].getCachedHosts()));
         }
       } else { 
         //Create empty hosts array for zero length files
+        /**
+         * 当前这个文件没有内容，
+         * 创建一个空数组
+         */
         splits.add(makeSplit(path, 0, length, new String[0]));
       }
     }
@@ -436,6 +458,7 @@ public abstract class FileInputFormat<K, V> extends InputFormat<K, V> {
 
   protected long computeSplitSize(long blockSize, long minSize,
                                   long maxSize) {
+    // 默认情况下：max(128, min(128, Long.MAX_VALUE)) = 128
     return Math.max(minSize, Math.min(maxSize, blockSize));
   }
 

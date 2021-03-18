@@ -86,6 +86,12 @@ public abstract class TaskInputOutputContextImpl<KEYIN,VALUEIN,KEYOUT,VALUEOUT>
    */
   public void write(KEYOUT key, VALUEOUT value
                     ) throws IOException, InterruptedException {
+    /**
+     *  在mapTask中这个  output 就是
+     *                         有reduce就是 NewOutputCollector
+     *                         没有reduce就是  NewDirectOutputCollector
+     *  在reduceTask中 output 就是 LineRecordWriter
+     */
     output.write(key, value);
   }
 

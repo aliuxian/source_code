@@ -171,6 +171,9 @@ public class LineReader implements Closeable {
     if (this.recordDelimiterBytes != null) {
       return readCustomLine(str, maxLineLength, maxBytesToConsume);
     } else {
+      /**
+       * 默认实现
+       */
       return readDefaultLine(str, maxLineLength, maxBytesToConsume);
     }
   }
@@ -182,9 +185,21 @@ public class LineReader implements Closeable {
 
   /**
    * Read a line terminated by one of CR, LF, or CRLF.
+   * unix LF  '\n'
+   * mac  CR  '\r'
+   * windows  CRLF  '\r\n'
    */
   private int readDefaultLine(Text str, int maxLineLength, int maxBytesToConsume)
   throws IOException {
+
+    /**
+     *
+     * 当前字符是CR（标识一下：prevCharCR = true），需要看下一个字符是否是 LF
+     *
+     * 当前字符是LF，需要看一下前一个字符是否是CR（prevCharCR），如果不是，就是unix文件，如果是就是windows文件
+     *
+     * 如果当前字符既不是LF 也是 CR 那么就看上一个字符是否是CR（prevCharCR），是的话 就是一个mac文件
+     */
     /* We're reading data from in, but the head of the stream may be
      * already buffered in buffer, so we have several cases:
      * 1. No newline characters are in the buffer, so we need to copy

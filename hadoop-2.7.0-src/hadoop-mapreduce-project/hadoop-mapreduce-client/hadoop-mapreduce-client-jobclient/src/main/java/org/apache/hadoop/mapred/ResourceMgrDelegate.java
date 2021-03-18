@@ -94,6 +94,13 @@ public class ResourceMgrDelegate extends YarnClient {
     this.conf = conf;
     this.client = YarnClient.createYarnClient();
     init(conf);
+
+    /**
+     * 创建rmClient (ApplicationClientProtocol)
+     * rmClient在YarnClientImpl
+     * 所以这里的start方法内部调用了serviceStart（YarnClientImpl实现）方法，
+     * 真正的RM代理
+     */
     start();
   }
 
@@ -287,6 +294,9 @@ public class ResourceMgrDelegate extends YarnClient {
   public ApplicationId
       submitApplication(ApplicationSubmissionContext appContext)
           throws YarnException, IOException {
+    /**
+     * client ==> YarnClientImpl
+     */
     return client.submitApplication(appContext);
   }
 

@@ -41,6 +41,11 @@ import com.google.common.base.Charsets;
 @InterfaceStability.Stable
 public class TextInputFormat extends FileInputFormat<LongWritable, Text> {
 
+
+  /**
+   * InputFormat就是通过这个方法来创建RecordReader的
+   * 对于TextInputFormat来说，创建的RecordReader默认的实现就是LineRecordReader
+   */
   @Override
   public RecordReader<LongWritable, Text> 
     createRecordReader(InputSplit split,

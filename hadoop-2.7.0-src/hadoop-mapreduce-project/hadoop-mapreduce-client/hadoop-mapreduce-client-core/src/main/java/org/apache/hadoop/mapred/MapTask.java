@@ -338,6 +338,9 @@ public class MapTask extends Task {
     }
 
     if (useNewApi) {
+      /**
+       *
+       */
       runNewMapper(job, splitMetaInfo, umbilical, reporter);
     } else {
       runOldMapper(job, splitMetaInfo, umbilical, reporter);
@@ -381,12 +384,17 @@ public class MapTask extends Task {
   private <KEY, VALUE> MapOutputCollector<KEY, VALUE>
           createSortingCollector(JobConf job, TaskReporter reporter)
     throws IOException, ClassNotFoundException {
+
     MapOutputCollector.Context context =
       new MapOutputCollector.Context(this, job, reporter);
 
+    /***
+     *
+     */
     Class<?>[] collectorClasses = job.getClasses(
       JobContext.MAP_OUTPUT_COLLECTOR_CLASS_ATTR, MapOutputBuffer.class);
     int remainingCollectors = collectorClasses.length;
+
     Exception lastException = null;
     for (Class clazz : collectorClasses) {
       try {
@@ -394,12 +402,27 @@ public class MapTask extends Task {
           throw new IOException("Invalid output collector class: " + clazz.getName() +
             " (does not implement MapOutputCollector)");
         }
+
+        /**
+         * MapOutputCollector的子类就是MapOutputBuffer
+         */
         Class<? extends MapOutputCollector> subclazz =
           clazz.asSubclass(MapOutputCollector.class);
         LOG.debug("Trying map output collector class: " + subclazz.getName());
+
+        /**
+         * 反射拿到一个MapOutputCollector对象 （就是MapOutputBuffer）
+         */
         MapOutputCollector<KEY, VALUE> collector =
           ReflectionUtils.newInstance(subclazz, job);
+
+        /**
+         * 初始化 MapOutputBuffer
+         * 重要的两件事：初始化环形缓冲区、启动spill线程
+         */
         collector.init(context);
+
+
         LOG.info("Map output collector class = " + collector.getClass().getName());
         return collector;
       } catch (Exception e) {
@@ -512,6 +535,10 @@ public class MapTask extends Task {
       fsStats = matchedStats;
 
       long bytesInPrev = getInputBytes(fsStats);
+
+      /**
+       *
+       */
       this.real = inputFormat.createRecordReader(split, taskContext);
       long bytesInCurr = getInputBytes(fsStats);
       fileInputByteCounter.increment(bytesInCurr - bytesInPrev);
@@ -553,7 +580,11 @@ public class MapTask extends Task {
     @Override
     public boolean nextKeyValue() throws IOException, InterruptedException {
       long bytesInPrev = getInputBytes(fsStats);
+      /**
+       * real  ： RecordReader  =》 LineRecordReader
+       */
       boolean result = real.nextKeyValue();
+
       long bytesInCurr = getInputBytes(fsStats);
       if (result) {
         inputRecordCounter.increment(1);
@@ -685,6 +716,16 @@ public class MapTask extends Task {
   
   private class NewOutputCollector<K,V>
     extends org.apache.hadoop.mapreduce.RecordWriter<K,V> {
+
+    /**
+     * NewOutputCollector的成员变量 MapOutputCollector 的具体实现类是 MapOutputBuffer
+     * MapOutputBuffer的内部管理了一个100m大小的 byte[] kvbuffer（这个kvbuffer就是环形缓冲区的）
+     *
+     * MapOutputBuffer 的两个很重要的成员变量：
+     *        byte[] kvbuffer
+     *        SpillThread
+     *
+     */
     private final MapOutputCollector<K,V> collector;
     private final org.apache.hadoop.mapreduce.Partitioner<K,V> partitioner;
     private final int partitions;
@@ -695,12 +736,22 @@ public class MapTask extends Task {
                        TaskUmbilicalProtocol umbilical,
                        TaskReporter reporter
                        ) throws IOException, ClassNotFoundException {
+      /**
+       * collector的初始化
+       */
       collector = createSortingCollector(job, reporter);
+
+      /**
+       * reduceTask的数量
+       */
       partitions = jobContext.getNumReduceTasks();
       if (partitions > 1) {
+        // 创建分区器
+        // 默认是HashPartitioner
         partitioner = (org.apache.hadoop.mapreduce.Partitioner<K,V>)
           ReflectionUtils.newInstance(jobContext.getPartitionerClass(), job);
       } else {
+        // 如果只有一个reduceTask，那么每一次都是0号分区
         partitioner = new org.apache.hadoop.mapreduce.Partitioner<K,V>() {
           @Override
           public int getPartition(K key, V value, int numPartitions) {
@@ -712,6 +763,10 @@ public class MapTask extends Task {
 
     @Override
     public void write(K key, V value) throws IOException, InterruptedException {
+      /**
+       *  MapOutputBuffer
+       *  在数据写入到环形缓冲区的时候，获取了分区信息：partitioner.getPartition(key, value, partitions)
+       */
       collector.collect(key, value,
                         partitioner.getPartition(key, value, partitions));
     }
@@ -736,37 +791,74 @@ public class MapTask extends Task {
                     TaskReporter reporter
                     ) throws IOException, ClassNotFoundException,
                              InterruptedException {
+
+
+    /**
+     * Task的上下文，管理着task相关的所有信息
+     */
     // make a task context so we can get the classes
     org.apache.hadoop.mapreduce.TaskAttemptContext taskContext =
       new org.apache.hadoop.mapreduce.task.TaskAttemptContextImpl(job, 
                                                                   getTaskID(),
                                                                   reporter);
+
+    /**
+     * Map Class  就是自己实现的那个Mapper
+     * job.setMapperClass();
+     * 反射获取实例
+     *
+     * 后面调用mapper.run方法
+     */
     // make a mapper
     org.apache.hadoop.mapreduce.Mapper<INKEY,INVALUE,OUTKEY,OUTVALUE> mapper =
       (org.apache.hadoop.mapreduce.Mapper<INKEY,INVALUE,OUTKEY,OUTVALUE>)
         ReflectionUtils.newInstance(taskContext.getMapperClass(), job);
+
+    /**
+     * 获取InputFormat
+     *
+     */
     // make the input format
     org.apache.hadoop.mapreduce.InputFormat<INKEY,INVALUE> inputFormat =
       (org.apache.hadoop.mapreduce.InputFormat<INKEY,INVALUE>)
         ReflectionUtils.newInstance(taskContext.getInputFormatClass(), job);
+
+    /**
+     * 获取该mapTask要处理的InputSplit，封装了数据块相关的信息
+     * 在进行逻辑切片的时候，FileInputFormat.getSplits() => List<InputSplit>
+     */
     // rebuild the input split
     org.apache.hadoop.mapreduce.InputSplit split = null;
     split = getSplitDetails(new Path(splitIndex.getSplitLocation()),
         splitIndex.getStartOffset());
     LOG.info("Processing split: " + split);
 
+    /**
+     * NewTrackingRecordReader 内部的real成员变量通过inputFormat.createRecordReader获取了
+     * 真正负责读数据的LineRecordReader对象
+     */
     org.apache.hadoop.mapreduce.RecordReader<INKEY,INVALUE> input =
       new NewTrackingRecordReader<INKEY,INVALUE>
         (split, inputFormat, reporter, taskContext);
     
     job.setBoolean(JobContext.SKIP_RECORDS, isSkipping());
     org.apache.hadoop.mapreduce.RecordWriter output = null;
-    
+
+
     // get an output object
     if (job.getNumReduceTasks() == 0) {
+      /**
+       * 没有reduce 直接将数据写到磁盘，没有排序，也没有combiner
+       *
+       */
       output = 
         new NewDirectOutputCollector(taskContext, job, umbilical, reporter);
     } else {
+      /**
+       * 有reduce阶段 将数据写到环形缓冲区
+       * 所以在mapper中的context.write()方法最终就是通过NewOutputCollector.collect()来处理的
+       *
+       */
       output = new NewOutputCollector(taskContext, job, umbilical, reporter);
     }
 
@@ -777,14 +869,28 @@ public class MapTask extends Task {
           committer, 
           reporter, split);
 
+    /**
+     * 包装了mapContext
+     */
     org.apache.hadoop.mapreduce.Mapper<INKEY,INVALUE,OUTKEY,OUTVALUE>.Context 
         mapperContext = 
           new WrappedMapper<INKEY, INVALUE, OUTKEY, OUTVALUE>().getMapContext(
               mapContext);
 
     try {
+      /**
+       * input =》 NewTrackingRecordReader
+       * 初始化了对应的分片的文件输入流
+       */
       input.initialize(split, mapperContext);
+      /**
+       * biglau
+       * 自己写的map
+       * run方法内部调用了我们实现的map方法
+       * 执行业务逻辑
+       */
       mapper.run(mapperContext);
+
       mapPhase.complete();
       setPhase(TaskStatus.Phase.SORT);
       statusUpdate(umbilical);
@@ -897,6 +1003,7 @@ public class MapTask extends Task {
     int kvindex;            // marks end of fully serialized records
 
     int equator;            // marks origin of meta/serialization
+    // 80% 的标识
     int bufstart;           // marks beginning of spill
     int bufend;             // marks beginning of collectable
     int bufmark;            // marks end of record
@@ -904,6 +1011,7 @@ public class MapTask extends Task {
     int bufvoid;            // marks the point where we should stop
                             // reading at the end of the buffer
 
+    // 环形缓冲区
     byte[] kvbuffer;        // main output buffer
     private final byte[] b0 = new byte[0];
 
@@ -917,6 +1025,8 @@ public class MapTask extends Task {
     // spill accounting
     private int maxRec;
     private int softLimit;
+
+    // 是否正在溢写数据
     boolean spillInProgress;;
     int bufferRemaining;
     volatile Throwable sortSpillException = null;
@@ -924,11 +1034,33 @@ public class MapTask extends Task {
     int numSpills = 0;
     private int minSpillsForCombine;
     private IndexedSorter sorter;
+
+    // 创建锁
     final ReentrantLock spillLock = new ReentrantLock();
+    /**
+     * 在MapTask工作的时候有两个重要的线程：
+     *    一个是将数据写到环形缓冲区的线程（调用collector.collect()的线程）
+     *    一个是进行溢写的线程
+     *
+     *    spillDone   表示spill完成了
+     *    spillReady  表示可以开始spill了
+     *
+     */
     final Condition spillDone = spillLock.newCondition();
     final Condition spillReady = spillLock.newCondition();
     final BlockingBuffer bb = new BlockingBuffer();
     volatile boolean spillThreadRunning = false;
+    /**
+     * 溢写线程
+     * mapTask中一共有两个线程：
+     *              写数据的线程
+     *              溢写线程
+     * 初始化MapOutputBuffer的时候，就会启动这个线程，该线程一启动就会调用spillReady.await()等待spill的信号
+     * 当环形缓冲区被写到80%的时候，写线程就会调用spillReady.signal()通知溢写线程可以开始溢写了。
+     * 然后溢写线程就会开始对这80%的数据进行溢写，溢写的时候会先排序然后combiner。
+     * 当溢写结束之后，溢写线程又会调用spillDone.signal()通知写线程。
+     * 如果因为原来100mb的空间的20%也被写满了，那么写线程就会调用spillDone.await()等待溢写线程的通知
+     */
     final SpillThread spillThread = new SpillThread();
 
     private FileSystem rfs;
@@ -964,27 +1096,57 @@ public class MapTask extends Task {
       partitions = job.getNumReduceTasks();
       rfs = ((LocalFileSystem)FileSystem.getLocal(job)).getRaw();
 
+      /**
+       * spillper 溢写的阈值  默认80%     参数：mapreduce.map.sort.spill.percent
+       * sortmb   环形缓冲区的大小  默认100mb   参数：mapreduce.task.io.sort.mb
+       */
       //sanity checks
       final float spillper =
         job.getFloat(JobContext.MAP_SORT_SPILL_PERCENT, (float)0.8);
       final int sortmb = job.getInt(JobContext.IO_SORT_MB, 100);
+
+      /**
+       * 存放溢写文件的缓存大小：1024 * 1024   参数：mapreduce.task.index.cache.limit.bytes
+       */
       indexCacheMemoryLimit = job.getInt(JobContext.INDEX_CACHE_MEMORY_LIMIT,
                                          INDEX_CACHE_MEMORY_LIMIT_DEFAULT);
+
+      // 判断阈值的合法性(0.0, 1.0]
       if (spillper > (float)1.0 || spillper <= (float)0.0) {
         throw new IOException("Invalid \"" + JobContext.MAP_SORT_SPILL_PERCENT +
             "\": " + spillper);
       }
+
+      // 判断环形缓冲区的大小的合法性 不能大于2048mb？？
       if ((sortmb & 0x7FF) != sortmb) {
         throw new IOException(
             "Invalid \"" + JobContext.IO_SORT_MB + "\": " + sortmb);
       }
+
+
+      /**
+       * 环形缓冲区排序算法：快排（QuickSort）   排序组件IndexedSorter
+       * 磁盘文件的排序： 归并排序（MergeSort）
+       */
       sorter = ReflectionUtils.newInstance(job.getClass("map.sort.class",
             QuickSort.class, IndexedSorter.class), job);
+
+
+      /**
+       * METASIZE = 16byte
+       * sortmb = 100mb
+       * 单位转换： 将100m => 104857600 byte
+       */
       // buffers and accounting
       int maxMemUsage = sortmb << 20;
       maxMemUsage -= maxMemUsage % METASIZE;
+      /**
+       * 初始化kvbuffer
+       */
       kvbuffer = new byte[maxMemUsage];
       bufvoid = kvbuffer.length;
+
+
       kvmeta = ByteBuffer.wrap(kvbuffer)
          .order(ByteOrder.nativeOrder())
          .asIntBuffer();
@@ -993,7 +1155,14 @@ public class MapTask extends Task {
       kvstart = kvend = kvindex;
 
       maxRec = kvmeta.capacity() / NMETA;
+
+      /**
+       * 80%的环形缓冲区，超出这个限制就要开始溢写
+       */
       softLimit = (int)(kvbuffer.length * spillper);
+      /**
+       * 80% 中还剩下的可用大小
+       */
       bufferRemaining = softLimit;
       LOG.info(JobContext.IO_SORT_MB + ": " + sortmb);
       LOG.info("soft limit at " + softLimit);
@@ -1017,7 +1186,7 @@ public class MapTask extends Task {
       fileOutputByteCounter = reporter
           .getCounter(TaskCounter.MAP_OUTPUT_MATERIALIZED_BYTES);
 
-      // compression
+      // compression  压缩
       if (job.getCompressMapOutput()) {
         Class<? extends CompressionCodec> codecClass =
           job.getMapOutputCompressorClass(DefaultCodec.class);
@@ -1029,6 +1198,9 @@ public class MapTask extends Task {
       // combiner
       final Counters.Counter combineInputCounter =
         reporter.getCounter(TaskCounter.COMBINE_INPUT_RECORDS);
+      /**
+       * CombinerRunner
+       */
       combinerRunner = CombinerRunner.create(job, getTaskID(), 
                                              combineInputCounter,
                                              reporter, null);
@@ -1040,13 +1212,29 @@ public class MapTask extends Task {
         combineCollector = null;
       }
       spillInProgress = false;
+
+      /**
+       * 当溢写文件数量达到三个，就要开始合并
+       */
       minSpillsForCombine = job.getInt(JobContext.MAP_COMBINE_MIN_SPILLS, 3);
+      // 将溢写线程设置为守护线程
       spillThread.setDaemon(true);
       spillThread.setName("SpillThread");
+      /**
+       * 当前写数据线程获取到了锁
+       */
       spillLock.lock();
       try {
+        // 启动溢写线程
         spillThread.start();
+
+        // 溢写线程是否处于running状态，默认一开始是false
+        // 溢写线程启动之后，会将spillThreadRunning设置为true,然后调用spillDone.signal
+        // 等待溢写线程启动
         while (!spillThreadRunning) {
+          // 等待，await方法会释放锁。溢写线程唤醒写线程之后，写线程会等待获取锁，
+          // 而后溢写线程会调用spillReady的await方法，阻塞并释放锁，写线程即可开始往下执行，
+          // 此时spillThreadRunning已经为true，跳出循环，并释放锁。
           spillDone.await();
         }
       } catch (InterruptedException e) {
@@ -1083,7 +1271,14 @@ public class MapTask extends Task {
             partition + ")");
       }
       checkSpillException();
+      // 每次写数据之前，先减去16个字节的元数据占用的空间
       bufferRemaining -= METASIZE;
+
+
+      /**
+       * bufferRemaining表示100mb里面的80%
+       * bufferRemaining <= 0 表示需要进行溢写
+       */
       if (bufferRemaining <= 0) {
         // start spill if the thread is not running and the soft limit has been
         // reached
@@ -1091,6 +1286,7 @@ public class MapTask extends Task {
         try {
           do {
             if (!spillInProgress) {
+              // 没有在溢写数据
               final int kvbidx = 4 * kvindex;
               final int kvbend = 4 * kvend;
               // serialized, unspilled bytes always lie between kvindex and
@@ -1109,7 +1305,11 @@ public class MapTask extends Task {
               } else if (bufsoftlimit && kvindex != kvend) {
                 // spill records, if any collected; check latter, as it may
                 // be possible for metadata alignment to hit spill pcnt
+                /**
+                 * 开始溢写  内部就是给溢写线程发送一个信号：可以开始溢写了
+                 */
                 startSpill();
+
                 final int avgRec = (int)
                   (mapOutputByteCounter.getCounter() /
                   mapOutputRecordCounter.getCounter());
@@ -1143,15 +1343,21 @@ public class MapTask extends Task {
         }
       }
 
+      /**
+       * 将数据写入环形缓冲区
+       */
       try {
+        // 先将key进行序列化
         // serialize key bytes into buffer
         int keystart = bufindex;
         keySerializer.serialize(key);
+
         if (bufindex < keystart) {
           // wrapped the key; must make contiguous
           bb.shiftBufferedKey();
           keystart = 0;
         }
+
         // serialize value bytes into buffer
         final int valstart = bufindex;
         valSerializer.serialize(value);
@@ -1523,12 +1729,20 @@ public class MapTask extends Task {
         spillThreadRunning = true;
         try {
           while (true) {
+            // 通知写数据线程，可以开始写数据了
             spillDone.signal();
+
+            // spillInProgress 初始值为false
             while (!spillInProgress) {
+              // 阻塞溢写线程,释放锁
               spillReady.await();
             }
             try {
               spillLock.unlock();
+              /**
+               * 开始溢写  sort  combiner spill
+               * 由于这里是循环，所以写完了之后就开始新的循环，就会通知写线程spillDone.signal();
+               */
               sortAndSpill();
             } catch (Throwable t) {
               sortSpillException = t;
@@ -1564,6 +1778,7 @@ public class MapTask extends Task {
     }
 
     private void startSpill() {
+      // 断言溢写线程现在没有在溢写数据
       assert !spillInProgress;
       kvend = (kvindex + NMETA) % kvmeta.capacity();
       bufend = bufmark;
@@ -1575,6 +1790,9 @@ public class MapTask extends Task {
                "); kvend = " + kvend + "(" + (kvend * 4) +
                "); length = " + (distanceTo(kvend, kvstart,
                      kvmeta.capacity()) + 1) + "/" + maxRec);
+      /**
+       * 通知溢写线程可以开始写了
+       */
       spillReady.signal();
     }
 
@@ -1587,7 +1805,12 @@ public class MapTask extends Task {
       FSDataOutputStream out = null;
       try {
         // create spill file
+        // SpillRecord 存储溢写文件的的索引信息
         final SpillRecord spillRec = new SpillRecord(partitions);
+
+        /**
+         * 创建一个溢写的文件  mapOutputFile
+         */
         final Path filename =
             mapOutputFile.getSpillFileForWrite(numSpills, size);
         out = rfs.create(filename);
@@ -1597,10 +1820,29 @@ public class MapTask extends Task {
           (kvstart >= kvend
           ? kvstart
           : kvmeta.capacity() + kvstart) / NMETA;
+
+        /**
+         * ！！！！！！！！！！！！！！！
+         * ！！！！！！！！！！！！！！！
+         * 排序，这里是快排
+         * ！！！！！！！！！！！！！！！
+         * mstart, mend,   环形缓冲区中溢写的范围
+         *
+         * 排序的时候实际是按照partition和key的联合排序
+         */
         sorter.sort(MapOutputBuffer.this, mstart, mend, reporter);
+
         int spindex = mstart;
+        /**
+         * IndexRecord 当前这个分区的索引数据
+         * 一个IndexRecorde占24字节
+         */
         final IndexRecord rec = new IndexRecord();
         final InMemValBytes value = new InMemValBytes();
+
+        /**
+         * 遍历分区，按分区ID从小到大写数据
+         */
         for (int i = 0; i < partitions; ++i) {
           IFile.Writer<K, V> writer = null;
           try {
@@ -1608,6 +1850,10 @@ public class MapTask extends Task {
             FSDataOutputStream partitionOut = CryptoUtils.wrapIfNecessary(job, out);
             writer = new Writer<K, V>(job, partitionOut, keyClass, valClass, codec,
                                       spilledRecordsCounter);
+
+            /**
+             * 判断是否是combiner，如果有会进行局部聚合
+             */
             if (combinerRunner == null) {
               // spill directly
               DataInputBuffer key = new DataInputBuffer();
@@ -1618,6 +1864,9 @@ public class MapTask extends Task {
                 int valstart = kvmeta.get(kvoff + VALSTART);
                 key.reset(kvbuffer, keystart, valstart - keystart);
                 getVBytesForOffset(kvoff, value);
+                /**
+                 * 没有combine直接写出
+                 */
                 writer.append(key, value);
                 ++spindex;
               }
@@ -1634,6 +1883,11 @@ public class MapTask extends Task {
                 combineCollector.setWriter(writer);
                 RawKeyValueIterator kvIter =
                   new MRResultIterator(spstart, spindex);
+                /**
+                 * 有combiner  先执行聚合操作
+                 * 里面的逻辑就是对这个分区的数据先执行了一次reduce（combine设置的reduce）操作。
+                 * 然后在将数据写出去
+                 */
                 combinerRunner.combine(kvIter, combineCollector);
               }
             }
@@ -1642,9 +1896,18 @@ public class MapTask extends Task {
             writer.close();
 
             // record offsets
+            // 端偏移（分区数据开始的位置）
             rec.startOffset = segmentStart;
+            // 原始数据长度
             rec.rawLength = writer.getRawLength() + CryptoUtils.cryptoPadding(job);
+            // 压缩之后数据长度
             rec.partLength = writer.getCompressedLength() + CryptoUtils.cryptoPadding(job);
+
+            /**
+             * SpillRecord : 内部存储分区的索引信息：IndexRecorde
+             * 一个溢写文件包含多个分区的数据，每一个分区都有一个对饮IndexRecorde
+             * 里面封装了该分区的索引数据
+             */
             spillRec.putIndex(rec, i);
 
             writer = null;
@@ -1658,6 +1921,10 @@ public class MapTask extends Task {
           Path indexFilename =
               mapOutputFile.getSpillIndexFileForWrite(numSpills, partitions
                   * MAP_OUTPUT_INDEX_RECORD_LENGTH);
+
+          /**
+           * 将索引数据写到文件
+           */
           spillRec.writeToFile(indexFilename, job);
         } else {
           indexCacheList.add(spillRec);

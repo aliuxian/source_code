@@ -68,6 +68,9 @@ class YarnChild {
 
   static volatile TaskAttemptID taskid = null;
 
+  /**
+   * biglau
+   */
   public static void main(String[] args) throws Throwable {
     Thread.setDefaultUncaughtExceptionHandler(new YarnUncaughtExceptionHandler());
     LOG.debug("Child starting");
@@ -153,6 +156,9 @@ class YarnChild {
 
       logSyncer = TaskLog.createLogSyncer();
 
+      /**
+       *
+       */
       // Create a final reference to the task for the doAs block
       final Task taskFinal = task;
       childUGI.doAs(new PrivilegedExceptionAction<Object>() {
@@ -160,6 +166,11 @@ class YarnChild {
         public Object run() throws Exception {
           // use job-specified working directory
           FileSystem.get(job).setWorkingDirectory(job.getWorkingDirectory());
+          /**
+           *  两种实现：
+           *  MapTask
+           *  ReduceTask
+           */
           taskFinal.run(job, umbilical); // run the task
           return null;
         }

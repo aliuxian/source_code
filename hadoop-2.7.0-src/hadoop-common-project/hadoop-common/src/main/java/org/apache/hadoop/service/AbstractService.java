@@ -190,6 +190,9 @@ public abstract class AbstractService implements Service {
       if (stateModel.enterState(STATE.STARTED) != STATE.STARTED) {
         try {
           startTime = System.currentTimeMillis();
+          /**
+           * 对于作业提交：YarnClientImpl
+           */
           serviceStart();
           if (isInState(STATE.STARTED)) {
             //if the service started (and isn't now in a later state), notify

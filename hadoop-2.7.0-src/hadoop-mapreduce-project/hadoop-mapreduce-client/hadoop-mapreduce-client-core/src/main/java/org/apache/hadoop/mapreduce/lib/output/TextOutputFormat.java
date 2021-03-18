@@ -89,20 +89,42 @@ public class TextOutputFormat<K, V> extends FileOutputFormat<K, V> {
     public synchronized void write(K key, V value)
       throws IOException {
 
+      // 判断key是否为空
       boolean nullKey = key == null || key instanceof NullWritable;
+      // 判断value是否空
       boolean nullValue = value == null || value instanceof NullWritable;
+      // key value都是null  直接返回
       if (nullKey && nullValue) {
         return;
       }
+      // key不为空  将key写出去
       if (!nullKey) {
         writeObject(key);
       }
+      /**
+       *  || 或  有短路的能力  如果第一个为true，就不会在看第二个表达式了
+       *  假如key为null  那么nullKey就是true，不用再看nullValue的值：
+       *                  (nullKey || nullValue) 就为true  !(nullKey || nullValue) 为false，
+       *                  不会进if
+       *  假如key不为null  那么nullKey就是false，继续看nullValue的值：
+       *                  nullValue 为 true ：
+       *                        (nullKey || nullValue) 就为true  !(nullKey || nullValue) 为 false，
+       *                        不会进if
+       *                  nullValue 为 false ：
+       *                        (nullKey || nullValue) 就为false  !(nullKey || nullValue) 为 true，
+       *                        进入if
+       *  总结：只有key和value都不是空的时候才会进if，
+       *  if 就是 写一个key和value之间的分隔符
+       */
       if (!(nullKey || nullValue)) {
         out.write(keyValueSeparator);
       }
+      // 如果value不为null，将value写出去
       if (!nullValue) {
         writeObject(value);
       }
+
+      // newline就是换行符
       out.write(newline);
     }
 

@@ -234,11 +234,18 @@ public class YarnClientImpl extends YarnClient {
   public ApplicationId
       submitApplication(ApplicationSubmissionContext appContext)
           throws YarnException, IOException {
+    /**
+     *
+     */
     ApplicationId applicationId = appContext.getApplicationId();
     if (applicationId == null) {
       throw new ApplicationIdNotProvidedException(
           "ApplicationId is not provided in ApplicationSubmissionContext");
     }
+
+    /**
+     *
+     */
     SubmitApplicationRequest request =
         Records.newRecord(SubmitApplicationRequest.class);
     request.setApplicationSubmissionContext(appContext);
@@ -249,6 +256,10 @@ public class YarnClientImpl extends YarnClient {
       addTimelineDelegationToken(appContext.getAMContainerSpec());
     }
 
+    /**
+     * rmClient => ApplicationClientProtocol
+     * 真正的提交逻辑
+     */
     //TODO: YARN-1763:Handle RM failovers during the submitApplication call.
     rmClient.submitApplication(request);
 

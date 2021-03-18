@@ -165,10 +165,21 @@ public class Reducer<KEYIN,VALUEIN,KEYOUT,VALUEOUT> {
    * control how the reduce task works.
    */
   public void run(Context context) throws IOException, InterruptedException {
+    //
     setup(context);
     try {
+      /**
+       * 读下一个key，真正读数据是在nextKey方法中
+       */
       while (context.nextKey()) {
+        /**
+         * 获取key  即 key对应的所有的value，所以这里是values，而map中是value
+         */
         reduce(context.getCurrentKey(), context.getValues(), context);
+        /**
+         * 因为在读取数据的过程中，将数据缓存到了BackupStore中，现在处理完了这个key以及它对应的数据，
+         * 那么就需要将BackupStore进行重置，因为下一个key的数据还要使用它。
+         */
         // If a back up store is used, reset it
         Iterator<VALUEIN> iter = context.getValues().iterator();
         if(iter instanceof ReduceContext.ValueIterator) {
@@ -176,6 +187,7 @@ public class Reducer<KEYIN,VALUEIN,KEYOUT,VALUEOUT> {
         }
       }
     } finally {
+      //
       cleanup(context);
     }
   }

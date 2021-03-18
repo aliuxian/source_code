@@ -116,6 +116,7 @@ public class Mapper<KEYIN, VALUEIN, KEYOUT, VALUEOUT> {
   }
 
   /**
+   * map的默认实现，读进来写出去
    * Called once for each key/value pair in the input split. Most applications
    * should override this, but the default is the identity function.
    */
@@ -134,19 +135,53 @@ public class Mapper<KEYIN, VALUEIN, KEYOUT, VALUEOUT> {
   }
   
   /**
+   * 通过这个run方法就将 setup  map  cleanup三个方法结合起来了
+   *
    * Expert users can override this method for more complete control over the
    * execution of the Mapper.
    * @param context
    * @throws IOException
    */
   public void run(Context context) throws IOException, InterruptedException {
+    /**
+     * 生命周期方法：
+     * setup
+     *    做一些初始化
+     * cleanup
+     *      做一些收尾工作，比如 关闭连接池
+     * 非常优雅的编码方式，学习借鉴！！！！！
+     */
+    //在map方法调用前，先执行一次msetup方法
     setup(context);
     try {
+      /**
+       * 真正读数据是在nextKeyValue
+       *  nextKeyValue 判断是否能获取到下一条数据，
+       *  有一条数据执行一次map方法，占用的内存就很小
+       *
+       *
+       *  对于断行（一条数据一部分在这个block里，一部分在下一个block里面）的数据怎么处理：
+       *  当前这个mapTask会继续去读下一个block的第一行直到读到一个换行符。
+       *  而另一个mapTask将会从第一个换行符后面开始读。
+       *
+       */
       while (context.nextKeyValue()) {
         map(context.getCurrentKey(), context.getCurrentValue(), context);
       }
     } finally {
+      // 最后执行cleanup方法
       cleanup(context);
     }
+
+    /**
+     * MapContextImpl 内部RecordReader的同名方法
+     * context.nextKeyValue()
+     * context.getCurrentKey()
+     * context.getCurrentValue()
+     * 最终的操作都是LineRecordReader
+     *
+     * MapContextImpl 内部的RecordWriter(具体实现是NewOutputCollector)的同名方法
+     * context.write(outKey,outValue)
+     */
   }
 }

@@ -138,12 +138,22 @@ class JobSubmitter {
   JobStatus submitJobInternal(Job job, Cluster cluster) 
   throws ClassNotFoundException, InterruptedException, IOException {
 
+    /**
+     * 验证输出路径
+     */
     //validate the jobs output specs 
     checkSpecs(job);
 
     Configuration conf = job.getConfiguration();
+
+    /**
+     * 将应用框架的路径添加到分布式缓存里
+     */
     addMRFrameworkToDistributedCache(conf);
 
+    /**
+     * 作业执行过程中，和作业相关的信息都会存储在这个目录下（HDFS中）
+     */
     Path jobStagingArea = JobSubmissionFiles.getStagingDir(cluster, conf);
     //configure the command line options correctly on the submitting dfs
     InetAddress ip = InetAddress.getLocalHost();
@@ -153,8 +163,21 @@ class JobSubmitter {
       conf.set(MRJobConfig.JOB_SUBMITHOST,submitHostName);
       conf.set(MRJobConfig.JOB_SUBMITHOSTADDR,submitHostAddress);
     }
+
+    /**
+     * 生成JobId
+     */
     JobID jobId = submitClient.getNewJobID();
     job.setJobID(jobId);
+
+    /**
+     * 提交一个Application的时候，Yarn的客户端会将该APP的一切要用的资源初始化并存储在HDFS的目录中，
+     * 那么以后哪个节点要执行Task，就会从这个路径拉取资源文件
+     *     1. 作业的jar包
+     *     2. job.xml （作业执行过程中需要用的各种配置：eg 资源的配置）
+     *     3. shell命令（最终在某个节点上启动Task的命令）
+     *     ......
+     */
     Path submitJobDir = new Path(jobStagingArea, jobId.toString());
     JobStatus status = null;
     try {
@@ -190,18 +213,39 @@ class JobSubmitter {
             job.getCredentials());
       }
 
+      /**
+       * 上传jar包到submitJobDir目录下
+       */
       copyAndConfigureFiles(job, submitJobDir);
 
+      /**
+       * 获取job.xml的地址
+       */
       Path submitJobFile = JobSubmissionFiles.getJobConfPath(submitJobDir);
-      
+
+      /**
+       * splits 相关的设置
+       */
       // Create the splits for the job
       LOG.debug("Creating splits at " + jtFs.makeQualified(submitJobDir));
+
+      /**
+       *  逻辑切片
+       */
       int maps = writeSplits(job, submitJobDir);
+
+      /**
+       * 设置mapTask的数量
+       */
       conf.setInt(MRJobConfig.NUM_MAPS, maps);
       LOG.info("number of splits:" + maps);
 
       // write "queue admins of the queue to which job is being submitted"
       // to job file.
+      /**
+       * 作业的队列名
+       * mapreduce.job.queuename,默认是default
+       */
       String queue = conf.get(MRJobConfig.QUEUE_NAME,
           JobConf.DEFAULT_QUEUE_NAME);
       AccessControlList acl = submitClient.getQueueAdmins(queue);
@@ -233,6 +277,9 @@ class JobSubmitter {
         conf.set(MRJobConfig.RESERVATION_ID, reservationId.toString());
       }
 
+      /**
+       * 将各种配置信息写到HDFS
+       */
       // Write job file to submit dir
       writeConf(conf, submitJobFile);
       
@@ -240,6 +287,11 @@ class JobSubmitter {
       // Now, actually submit the job (using the submit name)
       //
       printTokens(jobId, job.getCredentials());
+
+      /**
+       * 提交作业
+       * submitClient == YARNRunner
+       */
       status = submitClient.submitJob(
           jobId, submitJobDir.toString(), job.getCredentials());
       if (status != null) {
@@ -301,20 +353,42 @@ class JobSubmitter {
     InputFormat<?, ?> input =
       ReflectionUtils.newInstance(job.getInputFormatClass(), conf);
 
+    /**
+     * input 默认 实现 是 TextInputFormat  FileInputFormat的子类
+     * InputSplit 就是一个切片对象
+     *
+     * 针对FileInputFormat类型的输入
+     * 200个200M的文件最后启动400个MapTask
+     * 200个130M的文件最后启动200个文件
+     * 文件的分片标准是 128*1.1 = 140.8；
+     * 只要文件的大小大于140.8，就会进行分片，分片大小默认是128m（blocksize）
+     */
     List<InputSplit> splits = input.getSplits(job);
+
     T[] array = (T[]) splits.toArray(new InputSplit[splits.size()]);
 
     // sort the splits into order based on size, so that the biggest
     // go first
+    /**
+     * 对切片进行排序，让数据量大的任务先执行
+     */
     Arrays.sort(array, new SplitComparator());
+    /**
+     * 讲逻辑切片的信息写到HDFS上（jobSubmitDir）
+     */
     JobSplitWriter.createSplitFiles(jobSubmitDir, conf, 
         jobSubmitDir.getFileSystem(conf), array);
+
+    /**
+     * 分片的个数
+     */
     return array.length;
   }
   
   private int writeSplits(org.apache.hadoop.mapreduce.JobContext job,
       Path jobSubmitDir) throws IOException,
       InterruptedException, ClassNotFoundException {
+
     JobConf jConf = (JobConf)job.getConfiguration();
     int maps;
     if (jConf.getUseNewMapper()) {
