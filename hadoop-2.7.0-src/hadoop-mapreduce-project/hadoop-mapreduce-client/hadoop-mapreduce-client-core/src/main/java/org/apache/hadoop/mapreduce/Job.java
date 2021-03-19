@@ -1280,7 +1280,7 @@ public class Job extends JobContextImpl implements JobContext {
   public void submit() 
          throws IOException, InterruptedException, ClassNotFoundException {
     /**
-     * 设置当前Job状态
+     * 确认当前Job状态
      */
     ensureState(JobState.DEFINE);
     /**

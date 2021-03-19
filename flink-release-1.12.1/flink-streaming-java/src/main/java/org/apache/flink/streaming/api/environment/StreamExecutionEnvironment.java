@@ -1638,17 +1638,6 @@ public class StreamExecutionEnvironment {
          * 将Function =》 StreamOperator =》 Transformation
          */
 
-        DataStreamSource<TimestampedFileInputSplit> timestampedFileInputSplitDataStreamSource = addSource(
-                monitoringFunction,
-                sourceName,
-                null,
-                boundedness);
-
-        SingleOutputStreamOperator<OUT> transform = timestampedFileInputSplitDataStreamSource.transform(
-                "Split Reader: " + sourceName,
-                typeInfo,
-                factory);
-
         SingleOutputStreamOperator<OUT> source =
                 // StreamOperator，，会返回一个DataStream
                 addSource(monitoringFunction, sourceName, null, boundedness)

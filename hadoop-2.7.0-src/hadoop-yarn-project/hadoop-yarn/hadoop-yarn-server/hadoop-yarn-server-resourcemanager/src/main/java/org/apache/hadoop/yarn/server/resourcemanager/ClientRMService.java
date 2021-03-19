@@ -529,6 +529,9 @@ public class ClientRMService extends AbstractService implements
   @Override
   public SubmitApplicationResponse submitApplication(
       SubmitApplicationRequest request) throws YarnException {
+    /**
+     * 获取提交上下文
+     */
     ApplicationSubmissionContext submissionContext = request
         .getApplicationSubmissionContext();
     ApplicationId applicationId = submissionContext.getApplicationId();
@@ -577,6 +580,9 @@ public class ClientRMService extends AbstractService implements
 
     try {
       // call RMAppManager to submit application directly
+      /**
+       * 提交作业
+       */
       rmAppManager.submitApplication(submissionContext,
           System.currentTimeMillis(), user);
 

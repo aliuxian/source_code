@@ -282,7 +282,9 @@ public class YARNRunner implements ClientProtocol {
     addHistoryToken(ts);
 
     /**
-     *
+     * 构造application的提交环境，里面一个很重要的事就是封装了amContainer
+     * container中封装：
+     * JAVA_HOME/bin/java org.apache.hadoop.mapreduce.v2.app.MRAppMaster ...这样的一条命令
      */
     // Construct necessary information to start the MR AM
     ApplicationSubmissionContext appContext =
@@ -399,6 +401,9 @@ public class YARNRunner implements ClientProtocol {
     ts.writeTokenStorageToStream(dob);
     ByteBuffer securityTokens  = ByteBuffer.wrap(dob.getData(), 0, dob.getLength());
 
+    /**
+     * am  启动命令
+     */
     // Setup the command to run the AM
     List<String> vargs = new ArrayList<String>(8);
     vargs.add(MRApps.crossPlatformifyMREnv(jobConf, Environment.JAVA_HOME)
@@ -442,6 +447,9 @@ public class YARNRunner implements ClientProtocol {
       }
     }
 
+    /**
+     * am 主类：  org.apache.hadoop.mapreduce.v2.app.MRAppMaster
+     */
     vargs.add(MRJobConfig.APPLICATION_MASTER_CLASS);
     vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR +
         Path.SEPARATOR + ApplicationConstants.STDOUT);
@@ -451,6 +459,10 @@ public class YARNRunner implements ClientProtocol {
 
     Vector<String> vargsFinal = new Vector<String>(8);
     // Final command
+    /**
+     * 合并命令
+     * JAVA_HOME/bin/java org.apache.hadoop.mapreduce.v2.app.MRAppMaster ...
+     */
     StringBuilder mergedCommand = new StringBuilder();
     for (CharSequence str : vargs) {
       mergedCommand.append(str).append(" ");
@@ -492,6 +504,9 @@ public class YARNRunner implements ClientProtocol {
         MRJobConfig.JOB_ACL_MODIFY_JOB,
         MRJobConfig.DEFAULT_JOB_ACL_MODIFY_JOB));
 
+    /**
+     * 创建ApplicationMaster的container
+     */
     // Setup ContainerLaunchContext for AM container
     ContainerLaunchContext amContainer =
         ContainerLaunchContext.newInstance(localResources, environment,

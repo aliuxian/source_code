@@ -1210,7 +1210,7 @@ public class DataStream<T> {
          * 并赋值给了DataStream的transformation字段
          *
          *
-         * 创建一个OneInputTransformation对象 将之前
+         * 创建一个OneInputTransformation对象
          */
         OneInputTransformation<T, R> resultTransform =
                 new OneInputTransformation<>(

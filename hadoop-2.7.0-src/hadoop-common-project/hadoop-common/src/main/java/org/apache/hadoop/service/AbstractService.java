@@ -154,6 +154,7 @@ public abstract class AbstractService implements Service {
                                       + getName() + ": null configuration");
     }
     if (isInState(STATE.INITED)) {
+      // 已经初始化了
       return;
     }
     synchronized (stateChangeLock) {
@@ -191,7 +192,7 @@ public abstract class AbstractService implements Service {
         try {
           startTime = System.currentTimeMillis();
           /**
-           * 对于作业提交：YarnClientImpl
+           *
            */
           serviceStart();
           if (isInState(STATE.STARTED)) {

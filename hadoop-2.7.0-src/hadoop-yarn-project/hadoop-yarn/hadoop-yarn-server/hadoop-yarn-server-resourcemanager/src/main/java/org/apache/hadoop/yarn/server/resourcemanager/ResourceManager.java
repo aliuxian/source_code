@@ -1065,6 +1065,9 @@ public class ResourceManager extends CompositeService implements Recoverable {
 
   @Override
   protected void serviceStart() throws Exception {
+    /**
+     * 启动ResourceManager，根据是否是HA
+     */
     if (this.rmContext.isHAEnabled()) {
       transitionToStandby(true);
     } else {
@@ -1204,7 +1207,13 @@ public class ResourceManager extends CompositeService implements Recoverable {
         ShutdownHookManager.get().addShutdownHook(
           new CompositeServiceShutdownHook(resourceManager),
           SHUTDOWN_HOOK_PRIORITY);
+        /**
+         * 初始化resourceManager
+         */
         resourceManager.init(conf);
+        /**
+         * 启动resourceManager
+         */
         resourceManager.start();
       }
     } catch (Throwable t) {
