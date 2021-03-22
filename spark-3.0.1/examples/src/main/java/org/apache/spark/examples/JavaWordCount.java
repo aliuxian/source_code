@@ -42,18 +42,31 @@ public final class JavaWordCount {
       .appName("JavaWordCount")
       .getOrCreate();
 
+    /**
+     * 通过TextInputFormat 和 LineRecordReader  来读取，得到一个HadoopRDD
+     */
     JavaRDD<String> lines = spark.read().textFile(args[0]).javaRDD();
 
+    /**
+     * transformation 算子  lazy
+     */
     JavaRDD<String> words = lines.flatMap(s -> Arrays.asList(SPACE.split(s)).iterator());
 
     JavaPairRDD<String, Integer> ones = words.mapToPair(s -> new Tuple2<>(s, 1));
 
     JavaPairRDD<String, Integer> counts = ones.reduceByKey((i1, i2) -> i1 + i2);
 
+    /**
+     * 触发任务提交
+     * 一个action是一个job
+     * 一个应用程序可能会有很多个job
+     */
     List<Tuple2<String, Integer>> output = counts.collect();
+
     for (Tuple2<?,?> tuple : output) {
       System.out.println(tuple._1() + ": " + tuple._2());
     }
+
     spark.stop();
   }
 }
