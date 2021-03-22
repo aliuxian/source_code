@@ -103,6 +103,9 @@ public class CompositeService extends AbstractService {
     if (LOG.isDebugEnabled()) {
       LOG.debug(getName() + ": initing services, size=" + services.size());
     }
+    /**
+     * 初始化所有服务
+     */
     for (Service service : services) {
       service.init(conf);
     }
@@ -114,6 +117,9 @@ public class CompositeService extends AbstractService {
     if (LOG.isDebugEnabled()) {
       LOG.debug(getName() + ": starting services, size=" + services.size());
     }
+    /**
+     * 启动所有的服务
+     */
     for (Service service : services) {
       // start the service. If this fails that service
       // will be stopped and an exception raised

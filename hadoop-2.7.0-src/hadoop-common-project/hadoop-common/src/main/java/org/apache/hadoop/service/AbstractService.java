@@ -161,6 +161,12 @@ public abstract class AbstractService implements Service {
       if (enterState(STATE.INITED) != STATE.INITED) {
         setConfig(conf);
         try {
+          /**
+           * ResourceManager启动：
+           *        首先是调用ResourceManager实现的serviceInit()方法
+           *                内部会创建一个RMActiveServices对象,然后又会调用RMActiveServices实现的serviceInit()方法
+           *                      来初始化各种服务
+           */
           serviceInit(config);
           if (isInState(STATE.INITED)) {
             //if the service ended up here during init,

@@ -186,6 +186,9 @@ public class ResourceManager extends CompositeService implements Recoverable {
   @Override
   protected void serviceInit(Configuration conf) throws Exception {
     this.conf = conf;
+    /**
+     * RMContextImpl
+     */
     this.rmContext = new RMContextImpl();
     
     this.configurationProvider =
@@ -242,14 +245,25 @@ public class ResourceManager extends CompositeService implements Recoverable {
     addIfService(rmDispatcher);
     rmContext.setDispatcher(rmDispatcher);
 
+    /**
+     * adminService
+     */
     adminService = createAdminService();
     addService(adminService);
     rmContext.setRMAdminService(adminService);
     
     rmContext.setYarnConfiguration(conf);
-    
+
+    /**
+     * 为active状态的rm准备环境
+     * !!!!!!!!!!!!!!!!!!!!
+     * 重要
+     */
     createAndInitActiveServices();
 
+    /**
+     * 初始化web
+     */
     webAppAddress = WebAppUtils.getWebAppBindURL(this.conf,
                       YarnConfiguration.RM_BIND_HOST,
                       WebAppUtils.getRMWebAppURLWithoutScheme(this.conf));
@@ -400,6 +414,9 @@ public class ResourceManager extends CompositeService implements Recoverable {
       this.rm = rm;
     }
 
+    /**
+     *
+     */
     @Override
     protected void serviceInit(Configuration configuration) throws Exception {
       activeServiceContext = new RMActiveServiceContext();
@@ -981,6 +998,10 @@ public class ResourceManager extends CompositeService implements Recoverable {
    */
   protected void createAndInitActiveServices() throws Exception {
     activeServices = new RMActiveServices(this);
+    /**
+     * 初始化的时候会创建非常多的服务，添加到父类的serviceList成员变量中
+     * 然后在ResourceManager的start方法中会循环启动所有的service
+     */
     activeServices.init(conf);
   }
 
@@ -1066,7 +1087,8 @@ public class ResourceManager extends CompositeService implements Recoverable {
   @Override
   protected void serviceStart() throws Exception {
     /**
-     * 启动ResourceManager，根据是否是HA
+     * HA模式下，启动的时候都是以standby状态启动的。
+     * 如果不是HA，那么只有有一个主节点，这个主节点必然是active的，可以以active的状态直接启动
      */
     if (this.rmContext.isHAEnabled()) {
       transitionToStandby(true);
@@ -1074,12 +1096,18 @@ public class ResourceManager extends CompositeService implements Recoverable {
       transitionToActive();
     }
 
+    /**
+     * 启动web服务
+     */
     startWepApp();
     if (getConfig().getBoolean(YarnConfiguration.IS_MINI_YARN_CLUSTER,
         false)) {
       int port = webApp.port();
       WebAppUtils.setRMWebAppPort(conf, port);
     }
+    /**
+     *
+     */
     super.serviceStart();
   }
   
@@ -1208,7 +1236,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
           new CompositeServiceShutdownHook(resourceManager),
           SHUTDOWN_HOOK_PRIORITY);
         /**
-         * 初始化resourceManager
+         * 初始化resourceManager相关的服务
          */
         resourceManager.init(conf);
         /**
