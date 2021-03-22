@@ -74,6 +74,9 @@ private[spark] class ShuffleMapTask(
     if (locs == null) Nil else locs.distinct
   }
 
+  /**
+   * Task开始真正执行了
+   */
   override def runTask(context: TaskContext): MapStatus = {
     // Deserialize the RDD using the broadcast variable.
     val threadMXBean = ManagementFactory.getThreadMXBean
@@ -81,7 +84,13 @@ private[spark] class ShuffleMapTask(
     val deserializeStartCpuTime = if (threadMXBean.isCurrentThreadCpuTimeSupported) {
       threadMXBean.getCurrentThreadCpuTime
     } else 0L
+    /**
+     * 获取序列化器
+     */
     val ser = SparkEnv.get.closureSerializer.newInstance()
+    /**
+     * 获取RDD 和 ShuffleDependency 的信息
+     */
     val rddAndDep = ser.deserialize[(RDD[_], ShuffleDependency[_, _, _])](
       ByteBuffer.wrap(taskBinary.value), Thread.currentThread.getContextClassLoader)
     _executorDeserializeTimeNs = System.nanoTime() - deserializeStartTimeNs
@@ -96,6 +105,10 @@ private[spark] class ShuffleMapTask(
     val mapId = if (SparkEnv.get.conf.get(config.SHUFFLE_USE_OLD_FETCH_PROTOCOL)) {
       partitionId
     } else context.taskAttemptId()
+
+    /**
+     *
+     */
     dep.shuffleWriterProcessor.write(rdd, dep, mapId, context, partition)
   }
 

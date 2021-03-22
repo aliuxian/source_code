@@ -308,8 +308,10 @@ abstract class RDD[T: ClassTag](
    */
   final def iterator(split: Partition, context: TaskContext): Iterator[T] = {
     if (storageLevel != StorageLevel.NONE) {
+      // 有缓存
       getOrCompute(split, context)
     } else {
+      // 没有缓存
       computeOrReadCheckpoint(split, context)
     }
   }
@@ -344,8 +346,13 @@ abstract class RDD[T: ClassTag](
   private[spark] def computeOrReadCheckpoint(split: Partition, context: TaskContext): Iterator[T] =
   {
     if (isCheckpointedAndMaterialized) {
+      // 有checkpoint，直接从checkpoint获取
       firstParent[T].iterator(split, context)
     } else {
+      // 执行计算
+      /**
+       * RDD的的五大特性之一：compute
+       */
       compute(split, context)
     }
   }
@@ -1001,6 +1008,9 @@ abstract class RDD[T: ClassTag](
    * all the data is loaded into the driver's memory.
    */
   def collect(): Array[T] = withScope {
+    /**
+     * 作业提交入口
+     */
     val results = sc.runJob(this, (iter: Iterator[T]) => iter.toArray)
     Array.concat(results: _*)
   }

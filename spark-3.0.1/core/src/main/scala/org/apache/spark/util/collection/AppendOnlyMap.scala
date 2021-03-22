@@ -271,6 +271,9 @@ class AppendOnlyMap[K, V](initialCapacity: Int = 64)
     }
     assert(curSize == newIndex + (if (haveNullValue) 1 else 0))
 
+    /**
+     * 改良版本的mergeSort
+     */
     new Sorter(new KVArraySortDataFormat[K, AnyRef]).sort(data, 0, newIndex, keyComparator)
 
     new Iterator[(K, V)] {

@@ -95,6 +95,10 @@ private[spark] abstract class Spillable[C](taskMemoryManager: TaskMemoryManager)
     if (shouldSpill) {
       _spillCount += 1
       logSpillage(currentMemory)
+
+      /**
+       * 溢写
+       */
       spill(collection)
       _elementsRead = 0
       _memoryBytesSpilled += currentMemory

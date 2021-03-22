@@ -49,14 +49,40 @@ private[spark] class ShuffleWriteProcessor extends Serializable with Logging {
       partition: Partition): MapStatus = {
     var writer: ShuffleWriter[Any, Any] = null
     try {
+      /**
+       * shuffleManager   就是SortShuffleManager
+       */
       val manager = SparkEnv.get.shuffleManager
+
+      /**
+       * 获取shuffle过程中的writer
+       * 三种实现：
+       *
+       */
       writer = manager.getWriter[Any, Any](
         dep.shuffleHandle,
         mapId,
         context,
         createMetricsReporter(context))
+
+      /**
+       * writer 有三种实现：
+       * 普通机制：和mr的一样
+       * bypass机制：
+       * unsafe：不需要map聚合，分区数小于16777216，Serializer支持relocation
+       *
+       * 最后每个task只会生成一个数据文件，以及一个索引文件
+       *
+       * 执行计算逻辑，并将数据写出去
+       * 执行rdd 中 partition 的数据计算逻辑
+       */
       writer.write(
         rdd.iterator(partition, context).asInstanceOf[Iterator[_ <: Product2[Any, Any]]])
+
+      /**
+       * 删除spill过程中产生的文件（用不到的那部分），释放内存和磁盘资源，
+       * 比如：将一些spill文件合并之后，原先的文件就可以删除了
+       */
       writer.stop(success = true).get
     } catch {
       case e: Exception =>
