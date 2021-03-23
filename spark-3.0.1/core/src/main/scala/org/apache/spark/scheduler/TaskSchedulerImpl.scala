@@ -257,6 +257,12 @@ private[spark] class TaskSchedulerImpl(
       hasReceivedTask = true
     }
 
+    /**
+     * 最后并不是taskScheduler来提交的
+     * SchedulerBackend -> DriverEndpoint
+     *
+     * reviveOffers()
+     */
     backend.reviveOffers()
   }
 

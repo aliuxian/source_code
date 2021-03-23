@@ -46,6 +46,9 @@ private[spark] abstract class EventLoop[E](name: String) extends Logging {
         while (!stopped.get) {
           val event = eventQueue.take()
           try {
+            /**
+             * 处理接收到的逻辑
+             */
             onReceive(event)
           } catch {
             case NonFatal(e) =>

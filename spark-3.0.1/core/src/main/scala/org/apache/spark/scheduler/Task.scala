@@ -83,6 +83,10 @@ private[spark] abstract class Task[T](
       attemptNumber: Int,
       metricsSystem: MetricsSystem,
       resources: Map[String, ResourceInformation]): T = {
+
+    /**
+     *
+     */
     SparkEnv.get.blockManager.registerTask(taskAttemptId)
     // TODO SPARK-24874 Allow create BarrierTaskContext based on partitions, instead of whether
     // the stage is barrier.
@@ -124,6 +128,9 @@ private[spark] abstract class Task[T](
       Option(attemptNumber)).setCurrentContext()
 
     try {
+      /**
+       * ShuffleMapTask or ResultTask
+       */
       runTask(context)
     } catch {
       case e: Throwable =>

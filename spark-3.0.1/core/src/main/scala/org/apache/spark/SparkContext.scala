@@ -2099,8 +2099,18 @@ class SparkContext(config: SparkConf) extends Logging {
     if (conf.getBoolean("spark.logLineage", false)) {
       logInfo("RDD's recursive dependencies:\n" + rdd.toDebugString)
     }
+
+    /**
+     *
+     * job           job                    job                      stage
+     * rdd.action => sparkContext.runJob => DAGScheduler.runJob  =>  TaskScheduler.submitStage
+     */
     dagScheduler.runJob(rdd, cleanedFunc, partitions, callSite, resultHandler, localProperties.get)
     progressBar.foreach(_.finishAll())
+
+    /**
+     * 如果设置checkPoint
+     */
     rdd.doCheckpoint()
   }
 
@@ -2120,6 +2130,14 @@ class SparkContext(config: SparkConf) extends Logging {
       func: (TaskContext, Iterator[T]) => U,
       partitions: Seq[Int]): Array[U] = {
     val results = new Array[U](partitions.size)
+
+    /**
+     * biglau：
+     * rdd 要计算的RDD
+     * fun 计算逻辑
+     * 0 until rdd.partitions.length  分区范围
+     * (index, res)  index 分区编号   res 该分区对应的结果
+     */
     runJob[T, U](rdd, func, partitions, (index, res) => results(index) = res)
     results
   }
@@ -2138,7 +2156,11 @@ class SparkContext(config: SparkConf) extends Logging {
       rdd: RDD[T],
       func: Iterator[T] => U,
       partitions: Seq[Int]): Array[U] = {
+    /**
+     * function的序列化相关
+     */
     val cleanedFunc = clean(func)
+
     runJob(rdd, (ctx: TaskContext, it: Iterator[T]) => cleanedFunc(it), partitions)
   }
 
@@ -2164,6 +2186,12 @@ class SparkContext(config: SparkConf) extends Logging {
    * a result from one partition)
    */
   def runJob[T, U: ClassTag](rdd: RDD[T], func: Iterator[T] => U): Array[U] = {
+    /**
+     * biglau：
+     * rdd 要计算的RDD（最后一个RDD，finalRDD 调用action的那个RDD）
+     * fun 计算逻辑
+     * 0 until rdd.partitions.length  分区范围
+     */
     runJob(rdd, func, 0 until rdd.partitions.length)
   }
 

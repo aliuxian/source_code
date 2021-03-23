@@ -305,6 +305,9 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
         scheduler.resourceOffers(workOffers)
       }
       if (taskDescs.nonEmpty) {
+        /**
+         *
+         */
         launchTasks(taskDescs)
       }
     }
@@ -370,6 +373,9 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
           logDebug(s"Launching task ${task.taskId} on executor id: ${task.executorId} hostname: " +
             s"${executorData.executorHost}.")
 
+          /**
+           *
+           */
           executorData.executorEndpoint.send(LaunchTask(new SerializableBuffer(serializedTask)))
         }
       }
@@ -512,6 +518,9 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
   }
 
   override def reviveOffers(): Unit = {
+    /***
+     *
+     */
     driverEndpoint.send(ReviveOffers)
   }
 
