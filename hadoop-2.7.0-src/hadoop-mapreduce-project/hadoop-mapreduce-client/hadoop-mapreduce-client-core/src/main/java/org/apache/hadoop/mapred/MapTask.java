@@ -997,21 +997,27 @@ public class MapTask extends Task {
     private CompressionCodec codec;
 
     // k/v accounting
+    // 存放元数据
     private IntBuffer kvmeta; // metadata overlay on backing store
     int kvstart;            // marks origin of spill metadata
     int kvend;              // marks end of spill metadata
     int kvindex;            // marks end of fully serialized records
 
+    // 分割元数据和写入kv数据的标识
     int equator;            // marks origin of meta/serialization
-    // 80% 的标识
+
+    // bufStart - bufEnd 就是要进行溢写的部分
+    // kv数据的开始位置
     int bufstart;           // marks beginning of spill
+    // kv数据的结束位置
     int bufend;             // marks beginning of collectable
     int bufmark;            // marks end of record
     int bufindex;           // marks end of collected
+    // 存放数据的最大位置
     int bufvoid;            // marks the point where we should stop
                             // reading at the end of the buffer
 
-    // 环形缓冲区
+    // 环形缓冲区，存放数据
     byte[] kvbuffer;        // main output buffer
     private final byte[] b0 = new byte[0];
 
@@ -1027,10 +1033,12 @@ public class MapTask extends Task {
     private int softLimit;
 
     // 是否正在溢写数据
-    boolean spillInProgress;;
+    boolean spillInProgress;
+    // 还可以写输入数据的缓冲区大小
     int bufferRemaining;
     volatile Throwable sortSpillException = null;
 
+    // 溢写次数
     int numSpills = 0;
     private int minSpillsForCombine;
     private IndexedSorter sorter;
@@ -1098,7 +1106,7 @@ public class MapTask extends Task {
 
       /**
        * spillper 溢写的阈值  默认80%     参数：mapreduce.map.sort.spill.percent
-       * sortmb   环形缓冲区的大小  默认100mb   参数：mapreduce.task.io.sort.mb
+       * sortmb   环形缓冲区的大小  默认100MB   参数：mapreduce.task.io.sort.mb
        */
       //sanity checks
       final float spillper =
@@ -1106,7 +1114,7 @@ public class MapTask extends Task {
       final int sortmb = job.getInt(JobContext.IO_SORT_MB, 100);
 
       /**
-       * 存放溢写文件的缓存大小：1024 * 1024   参数：mapreduce.task.index.cache.limit.bytes
+       * 存放溢写文件的index的缓存大小：1024 * 1024   参数：mapreduce.task.index.cache.limit.bytes
        */
       indexCacheMemoryLimit = job.getInt(JobContext.INDEX_CACHE_MEMORY_LIMIT,
                                          INDEX_CACHE_MEMORY_LIMIT_DEFAULT);
@@ -1139,25 +1147,32 @@ public class MapTask extends Task {
        */
       // buffers and accounting
       int maxMemUsage = sortmb << 20;
+      // 计算buffer中最多有多少byte来存储元数据（一份元数据占16字节：VALSTART、KEYSTART、PARTITION、VALLEN）
       maxMemUsage -= maxMemUsage % METASIZE;
       /**
-       * 初始化kvbuffer
+       * 初始化kvbuffer,以byte为单位
        */
       kvbuffer = new byte[maxMemUsage];
+      // buf可写的最大位置
       bufvoid = kvbuffer.length;
 
 
+      // kvbuffer转化为int型的kvmeta  以int为单位，也就是4byte
       kvmeta = ByteBuffer.wrap(kvbuffer)
          .order(ByteOrder.nativeOrder())
          .asIntBuffer();
+
+      // 设置buf和元数据的分界线
       setEquator(0);
       bufstart = bufend = bufindex = equator;
       kvstart = kvend = kvindex;
 
+      // kvmeta中存放元数据实体的最大个数
       maxRec = kvmeta.capacity() / NMETA;
 
       /**
-       * 80%的环形缓冲区，超出这个限制就要开始溢写
+       * 80%的环形缓冲区，超出这个限制就要开始溢写（不单单是sortmb*spillper）
+       * kvbuffer.length 是一个16的整数倍，所以推荐将sortmb设置为16的整数倍
        */
       softLimit = (int)(kvbuffer.length * spillper);
       /**
@@ -1285,18 +1300,29 @@ public class MapTask extends Task {
         spillLock.lock();
         try {
           do {
+
+            // spillInProgress 默认是false
             if (!spillInProgress) {
-              // 没有在溢写数据
+              // 溢写线程没有在溢写数据
+
+              // 将kvindex转换为byte为单位
               final int kvbidx = 4 * kvindex;
+              // 将kvend 转换为byte为单位
               final int kvbend = 4 * kvend;
               // serialized, unspilled bytes always lie between kvindex and
               // bufindex, crossing the equator. Note that any void space
               // created by a reset must be included in "used" bytes
+              // 计算被使用掉的大小，（包括元数据和输出数据）
               final int bUsed = distanceTo(kvbidx, bufindex);
+              // 被使用的大小是否达到了溢写的阈值 80%
               final boolean bufsoftlimit = bUsed >= softLimit;
+
               if ((kvbend + METASIZE) % kvbuffer.length !=
                   equator - (equator % METASIZE)) {
                 // spill finished, reclaim space
+                /**
+                 * 溢写完成
+                 */
                 resetSpill();
                 bufferRemaining = Math.min(
                     distanceTo(bufindex, kvbidx) - 2 * METASIZE,
@@ -1386,6 +1412,9 @@ public class MapTask extends Task {
         kvindex = (kvindex - NMETA + kvmeta.capacity()) % kvmeta.capacity();
       } catch (MapBufferTooSmallException e) {
         LOG.info("Record too large for in-memory buffer: " + e.getMessage());
+        /**
+         * 单条数据太大，直接溢写到磁盘
+         */
         spillSingleRecord(key, value, partition);
         mapOutputRecordCounter.increment(1);
         return;
@@ -1404,10 +1433,20 @@ public class MapTask extends Task {
     private void setEquator(int pos) {
       equator = pos;
       // set index prior to first entry, aligned at meta boundary
+      // 0 - 0 % 16 = 0
       final int aligned = pos - (pos % METASIZE);
       // Cast one of the operands to long to avoid integer overflow
-      kvindex = (int)
-        (((long)aligned - METASIZE + kvbuffer.length) % kvbuffer.length) / 4;
+      // (0 - 16 + len) % len / 4
+      /**
+       * (0 - 16 + len)  环形缓冲区从后往前（逆时针）走16个字节
+       * (0 - 16 + len) % len  逆时针走16个字节的位置
+       * (0 - 16 + len) % len / 4 剩余区域，除以4就是以4为单位划分，能划分多少个，因为kvbuffer是以字节为单位的，
+       * 而元数据是以4个字节为单位的，这样求出来的就是存储元数据的下标
+       *
+       * eg：kvbuffer的长度是64，那么先减去16个位置，得到的就是48，这48个字节，
+       * 以4个字节为单位划分就是12，那么对于元数据的存储来说，下一个坐标就是12。
+       */
+      kvindex = (int) (((long)aligned - METASIZE + kvbuffer.length) % kvbuffer.length) / 4;
       LOG.info("(EQUATOR) " + pos + " kvi " + kvindex +
           "(" + (kvindex * 4) + ")");
     }
@@ -2178,6 +2217,10 @@ public class MapTask extends Task {
           Writer<K, V> writer =
               new Writer<K, V>(job, finalPartitionOut, keyClass, valClass, codec,
                                spilledRecordsCounter);
+          /**
+           * 对溢写文件进行合并
+           * 有两个溢写文件就进行一次合并。
+           */
           if (combinerRunner == null || numSpills < minSpillsForCombine) {
             Merger.writeFile(kvIter, writer, reporter, job);
           } else {

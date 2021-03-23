@@ -108,6 +108,9 @@ public class LineRecordReader extends RecordReader<LongWritable, Text> {
       in = new SplitLineReader(fileIn, job, this.recordDelimiterBytes);
       filePosition = fileIn;
     }
+    /**
+     * bigalu  断行处理
+     */
     // If this is not the first split, we always throw away first record
     // because we always (except the last split) read one extra line in
     // next() method.
@@ -182,7 +185,7 @@ public class LineRecordReader extends RecordReader<LongWritable, Text> {
      * 因为下面再读取的时候，没读一条之后就会更新一次pos的值，
      * 所以每次进来，pos的值就是这一次要读的数据的偏移量
      *
-     * pos += newSize;
+     * ===> pos += newSize;
      */
     key.set(pos);
     // 初始化value
