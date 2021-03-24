@@ -109,7 +109,7 @@ public class LineRecordReader extends RecordReader<LongWritable, Text> {
       filePosition = fileIn;
     }
     /**
-     * bigalu  断行处理
+     * biglau  断行处理
      */
     // If this is not the first split, we always throw away first record
     // because we always (except the last split) read one extra line in
