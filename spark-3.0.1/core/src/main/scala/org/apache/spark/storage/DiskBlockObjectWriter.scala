@@ -183,6 +183,10 @@ private[spark] class DiskBlockObjectWriter(
       }
 
       val pos = channel.position()
+      /**
+       * committedPosition 已经提交的，
+       * pos - committedPosition   还没提交的
+       */
       val fileSegment = new FileSegment(file, committedPosition, pos - committedPosition)
       committedPosition = pos
       // In certain compression codecs, more bytes are written after streams are closed

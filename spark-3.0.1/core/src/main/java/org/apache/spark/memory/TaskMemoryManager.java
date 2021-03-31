@@ -144,10 +144,17 @@ public class TaskMemoryManager {
     // off-heap memory. This is subject to change, though, so it may be risky to make this
     // optimization now in case we forget to undo it late when making changes.
     synchronized (this) {
+      /**
+       * 申请内存，on_heap  or  off_heap
+       */
       long got = memoryManager.acquireExecutionMemory(required, taskAttemptId, mode);
 
       // Try to release memory from other consumers first, then we can reduce the frequency of
       // spilling, avoid to have too many spilled files.
+      /**
+       * 申请到的实际内存小于要申请的内存，那么就进行spill
+       * 首先尝试释放其它的consumer占用的内存(spill)
+       */
       if (got < required) {
         // Call spill() on other consumers to release memory
         // Sort the consumers according their memory usage. So we avoid spilling the same consumer
@@ -174,6 +181,9 @@ public class TaskMemoryManager {
           List<MemoryConsumer> cList = currentEntry.getValue();
           MemoryConsumer c = cList.get(cList.size() - 1);
           try {
+            /**
+             * 溢写
+             */
             long released = c.spill(required - got, consumer);
             if (released > 0) {
               logger.debug("Task {} released {} from {} for {}", taskAttemptId,
@@ -202,9 +212,15 @@ public class TaskMemoryManager {
         }
       }
 
+      /**
+       * 如果还不够，就将自己占用的内存也释放（spill）
+       */
       // call spill() on itself
       if (got < required) {
         try {
+          /**
+           *
+           */
           long released = consumer.spill(required - got, consumer);
           if (released > 0) {
             logger.debug("Task {} released {} from itself ({})", taskAttemptId,
@@ -286,6 +302,9 @@ public class TaskMemoryManager {
       throw new TooLargePageException(size);
     }
 
+    /**
+     * 申请内存
+     */
     long acquired = acquireExecutionMemory(size, consumer);
     if (acquired <= 0) {
       return null;

@@ -102,13 +102,27 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
       // them at the end. This avoids doing serialization and deserialization twice to merge
       // together the spilled files, which would happen with the normal code path. The downside is
       // having multiple files open at a time and thus more memory allocated to buffers.
+      /**
+       * 分区数小于spark.shuffle.sort.bypassMergeThreshold(默认200)，并且不需要map端预聚合，
+       * 那么直接为每一个分区创建一个文件，并将数据写入，最后再将这些文件合并起来（单纯的将他们拼接在一起）形成一个输出文件。
+       * 这样可以避免在对一些文件进行合并时的序列化和反序列化操作。
+       * 这种方式的缺点是会一次打开很多的文件。
+       */
       new BypassMergeSortShuffleHandle[K, V](
         shuffleId, dependency.asInstanceOf[ShuffleDependency[K, V, V]])
     } else if (SortShuffleManager.canUseSerializedShuffle(dependency)) {
+      /**
+       * 没有map端预聚合
+       * 分区数小于 16777216  2^24 以序列化形式输出map端数据的时候，sortShuffleManager支持的最大分区数
+       * 序列化支持relocation (因为是以序列化输出的record，所以在排序的时候是对序列化之后的record进行排序，要求这样排序和没有序列化的时候排序结果是一样的)
+       */
       // Otherwise, try to buffer map outputs in a serialized form, since this is more efficient:
       new SerializedShuffleHandle[K, V](
         shuffleId, dependency.asInstanceOf[ShuffleDependency[K, V, V]])
     } else {
+      /**
+       * 普通的shuffle形式
+       */
       // Otherwise, buffer map outputs in a deserialized form:
       new BaseShuffleHandle(shuffleId, dependency)
     }
@@ -124,8 +138,13 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
       endPartition: Int,
       context: TaskContext,
       metrics: ShuffleReadMetricsReporter): ShuffleReader[K, C] = {
+
     val blocksByAddress = SparkEnv.get.mapOutputTracker.getMapSizesByExecutorId(
       handle.shuffleId, startPartition, endPartition)
+
+    /**
+     *
+     */
     new BlockStoreShuffleReader(
       handle.asInstanceOf[BaseShuffleHandle[K, _, C]], blocksByAddress, context, metrics,
       shouldBatchFetch = canUseBatchFetch(startPartition, endPartition, context))
@@ -152,8 +171,10 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
       mapId: Long,
       context: TaskContext,
       metrics: ShuffleWriteMetricsReporter): ShuffleWriter[K, V] = {
+
     val mapTaskIds = taskIdMapsForShuffle.computeIfAbsent(
       handle.shuffleId, _ => new OpenHashSet[Long](16))
+
     mapTaskIds.synchronized { mapTaskIds.add(context.taskAttemptId()) }
     val env = SparkEnv.get
     handle match {
@@ -204,6 +225,8 @@ private[spark] object SortShuffleManager extends Logging {
    * The maximum number of shuffle output partitions that SortShuffleManager supports when
    * buffering map outputs in a serialized form. This is an extreme defensive programming measure,
    * since it's extremely unlikely that a single shuffle produces over 16 million output partitions.
+   *
+   * MAXIMUM_PARTITION_ID = 16777215
    */
   val MAX_SHUFFLE_OUTPUT_PARTITIONS_FOR_SERIALIZED_MODE =
     PackedRecordPointer.MAXIMUM_PARTITION_ID + 1

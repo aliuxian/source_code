@@ -60,6 +60,9 @@ private[spark] abstract class Spillable[C](taskMemoryManager: TaskMemoryManager)
 
   // Threshold for this collection's size in bytes before we start tracking its memory usage
   // To avoid a large number of small spills, initialize this to a value orders of magnitude > 0
+  /**
+   * 默认5M
+   */
   @volatile private[this] var myMemoryThreshold = initialMemoryThreshold
 
   // Number of elements read from input since last spill
@@ -81,15 +84,31 @@ private[spark] abstract class Spillable[C](taskMemoryManager: TaskMemoryManager)
    */
   protected def maybeSpill(collection: C, currentMemory: Long): Boolean = {
     var shouldSpill = false
+
+    /**
+     * elementsRead 处理的数据条数
+     * currentMemory 当前缓冲区的实际大小
+     * myMemoryThreshold 默认5M
+     */
     if (elementsRead % 32 == 0 && currentMemory >= myMemoryThreshold) {
       // Claim up to double our current memory from the shuffle memory pool
+      /**
+       *
+       */
       val amountToRequest = 2 * currentMemory - myMemoryThreshold
       val granted = acquireMemory(amountToRequest)
       myMemoryThreshold += granted
       // If we were granted too little memory to grow further (either tryToAcquire returned 0,
       // or we already had more memory than myMemoryThreshold), spill the current collection
+      /**
+       * 当前占用的内存已经超过了阈值，就进行溢写
+       */
       shouldSpill = currentMemory >= myMemoryThreshold
     }
+
+    /**
+     * numElementsForceSpillThreshold 强制溢写，Integer.MAX_VALUE
+     */
     shouldSpill = shouldSpill || _elementsRead > numElementsForceSpillThreshold
     // Actually spill
     if (shouldSpill) {

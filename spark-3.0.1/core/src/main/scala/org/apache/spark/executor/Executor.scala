@@ -410,6 +410,9 @@ private[spark] class Executor(
         threadMXBean.getCurrentThreadCpuTime
       } else 0L
       Thread.currentThread.setContextClassLoader(replClassLoader)
+      /**
+       * 序列化器
+       */
       val ser = env.closureSerializer.newInstance()
       logInfo(s"Running $taskName (TID $taskId)")
 
@@ -618,10 +621,14 @@ private[spark] class Executor(
             val blockId = TaskResultBlockId(taskId)
 
             /**
-             * 结果反倒blockManager中
+             * 结果放到blockManager中
              */
             env.blockManager.putBytes(
               blockId,
+
+              /**
+               * 默认是将数据序列化到内存和磁盘
+               */
               new ChunkedByteBuffer(serializedDirectResult.duplicate()),
               StorageLevel.MEMORY_AND_DISK_SER)
             logInfo(

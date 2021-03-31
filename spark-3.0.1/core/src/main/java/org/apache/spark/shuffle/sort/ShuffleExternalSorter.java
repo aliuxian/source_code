@@ -72,6 +72,9 @@ final class ShuffleExternalSorter extends MemoryConsumer {
   @VisibleForTesting
   static final int DISK_WRITE_BUFFER_SIZE = 1024 * 1024;
 
+  /**
+   * 分区数量
+   */
   private final int numPartitions;
   private final TaskMemoryManager taskMemoryManager;
   private final BlockManager blockManager;
@@ -128,6 +131,9 @@ final class ShuffleExternalSorter extends MemoryConsumer {
     this.numElementsForSpillThreshold =
         (int) conf.get(package$.MODULE$.SHUFFLE_SPILL_NUM_ELEMENTS_FORCE_SPILL_THRESHOLD());
     this.writeMetrics = writeMetrics;
+    /**
+     *
+     */
     this.inMemSorter = new ShuffleInMemorySorter(
       this, initialSize, (boolean) conf.get(package$.MODULE$.SHUFFLE_SORT_USE_RADIXSORT()));
     this.peakMemoryUsedBytes = getMemoryUsage();
@@ -145,6 +151,9 @@ final class ShuffleExternalSorter extends MemoryConsumer {
    */
   private void writeSortedFile(boolean isLastFile) {
 
+    /**
+     * 排序
+     */
     // This call performs the actual sort.
     final ShuffleInMemorySorter.ShuffleSorterIterator sortedRecords =
       inMemSorter.getSortedIterator();
@@ -175,10 +184,16 @@ final class ShuffleExternalSorter extends MemoryConsumer {
     // Because this output will be read during shuffle, its compression codec must be controlled by
     // spark.shuffle.compress instead of spark.shuffle.spill.compress, so we need to use
     // createTempShuffleBlock here; see SPARK-3426 for more details.
+    /**
+     * 创建临时文件
+     */
     final Tuple2<TempShuffleBlockId, File> spilledFileInfo =
       blockManager.diskBlockManager().createTempShuffleBlock();
     final File file = spilledFileInfo._2();
     final TempShuffleBlockId blockId = spilledFileInfo._1();
+    /**
+     * 将本次spill的元数据保存在SpillInfo中
+     */
     final SpillInfo spillInfo = new SpillInfo(numPartitions, file, blockId);
 
     // Unfortunately, we need a serializer instance in order to construct a DiskBlockObjectWriter.
@@ -194,10 +209,18 @@ final class ShuffleExternalSorter extends MemoryConsumer {
 
       final int uaoSize = UnsafeAlignedOffset.getUaoSize();
       while (sortedRecords.hasNext()) {
+        /**
+         * 将排序后的数据逐条写到文件
+         */
         sortedRecords.loadNext();
         final int partition = sortedRecords.packedRecordPointer.getPartitionId();
         assert (partition >= currentPartition);
+
+
         if (partition != currentPartition) {
+          /**
+           * 出现了新的分区，更新SpillInfo的信息
+           */
           // Switch to the new partition
           if (currentPartition != -1) {
             final FileSegment fileSegment = writer.commitAndGet();
@@ -213,6 +236,9 @@ final class ShuffleExternalSorter extends MemoryConsumer {
         long recordReadPosition = recordOffsetInPage + uaoSize; // skip over record length
         while (dataRemaining > 0) {
           final int toTransfer = Math.min(diskWriteBufferSize, dataRemaining);
+          /**
+           * 将数据拷贝到写缓存writeBuffer   默认1MB
+           */
           Platform.copyMemory(
             recordPage, recordReadPosition, writeBuffer, Platform.BYTE_ARRAY_OFFSET, toTransfer);
           writer.write(writeBuffer, 0, toTransfer);
@@ -222,6 +248,9 @@ final class ShuffleExternalSorter extends MemoryConsumer {
         writer.recordWritten();
       }
 
+      /**
+       * 进行commit以及创建FileSegment
+       */
       committedSegment = writer.commitAndGet();
     }
     // If `writeSortedFile()` was called from `closeAndGetSpills()` and no records were inserted,
@@ -273,6 +302,9 @@ final class ShuffleExternalSorter extends MemoryConsumer {
       spills.size(),
       spills.size() > 1 ? " times" : " time");
 
+    /**
+     * 对数据进行排序，并写到磁盘
+     */
     writeSortedFile(false);
     final long spillSize = freeMemory();
     inMemSorter.reset();
@@ -347,9 +379,26 @@ final class ShuffleExternalSorter extends MemoryConsumer {
       LongArray array;
       try {
         // could trigger spilling
+        /**
+         * 重新申请一块大小为array两倍的内存，如果申请不到就抛异常SparkOutOfMemoryError
+         * 1. 一种是一点也没有了
+         * 2. 一种是申请到了一部分，如果是这样，就会将申请到的一部分释放掉，同样会抛异常
+         *
+         * 申请的内存大小超出了page的容量 ((1L << 31) - 1) * 8L;  抛出TooLargePageException异常
+         *
+         * 在申请内存的过程中
+         *              taskMemoryManager.allocatePage(required, this);
+         *                    acquireExecutionMemory(size, consumer);
+         *
+         *
+         * 如果申请到了就会创建一个新的array，大小为原来的两倍
+         */
         array = allocateArray(used / 8 * 2);
       } catch (TooLargePageException e) {
         // The pointer array is too big to fix in a single page, spill.
+        /**
+         * 进行溢写
+         */
         spill();
         return;
       } catch (SparkOutOfMemoryError e) {
@@ -361,6 +410,9 @@ final class ShuffleExternalSorter extends MemoryConsumer {
         return;
       }
       // check if spilling is triggered or not
+      /**
+       * 是否触发了spill
+       */
       if (inMemSorter.hasSpaceForAnotherRecord()) {
         freeArray(array);
       } else {
@@ -379,9 +431,15 @@ final class ShuffleExternalSorter extends MemoryConsumer {
    *                      special overflow pages).
    */
   private void acquireNewPageIfNecessary(int required) {
+    /**
+     * 第一条数据进来的时候currentPage就会等于null
+     */
     if (currentPage == null ||
       pageCursor + required > currentPage.getBaseOffset() + currentPage.size() ) {
       // TODO: try to find space in previous pages
+      /**
+       * 申请新的page
+       */
       currentPage = allocatePage(required);
       pageCursor = currentPage.getBaseOffset();
       allocatedPages.add(currentPage);
@@ -390,31 +448,65 @@ final class ShuffleExternalSorter extends MemoryConsumer {
 
   /**
    * Write a record to the shuffle sorter.
+   * recordBase 数据
+   * recordOffset  offset
+   * length  数据长度
    */
   public void insertRecord(Object recordBase, long recordOffset, int length, int partitionId)
     throws IOException {
 
     // for tests
     assert(inMemSorter != null);
+    /**
+     * numElementsForSpillThreshold   默认是int的最大值
+     */
     if (inMemSorter.numRecords() >= numElementsForSpillThreshold) {
       logger.info("Spilling data because number of spilledRecords crossed the threshold " +
         numElementsForSpillThreshold);
       spill();
     }
 
+    /**
+     * 指针数组是否需要扩容
+     */
     growPointerArrayIfNecessary();
+    /**
+     * 是使用8字节还是4字节，
+     * 不同的平台不一样
+     *
+     */
     final int uaoSize = UnsafeAlignedOffset.getUaoSize();
     // Need 4 or 8 bytes to store the record length.
+    /**
+     * 数据占用的内存以及record占用的内存
+     */
     final int required = length + uaoSize;
+    /**
+     * currentPage是否还能存放下该条数据
+     * currentPage == null  或者放不下数据  就申请新的page
+     */
     acquireNewPageIfNecessary(required);
 
     assert(currentPage != null);
     final Object base = currentPage.getBaseObject();
+    // 计算存放record的内存地址
     final long recordAddress = taskMemoryManager.encodePageNumberAndOffset(currentPage, pageCursor);
+    /**
+     * ?????????
+     */
     UnsafeAlignedOffset.putSize(base, pageCursor, length);
     pageCursor += uaoSize;
+    /**
+     * 真正的数据：recordBase放到堆外内存中
+     * 将recordBase从recordOffset的位置开始拷贝到
+     * base的pageCursor位置
+     */
     Platform.copyMemory(recordBase, recordOffset, base, pageCursor, length);
+    // 跟新cursor的位置
     pageCursor += length;
+    /**
+     * 将指针插入到排序器
+     */
     inMemSorter.insertRecord(recordAddress, partitionId);
   }
 

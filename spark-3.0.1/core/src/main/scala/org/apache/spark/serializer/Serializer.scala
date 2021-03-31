@@ -79,10 +79,12 @@ abstract class Serializer {
    * serOut.flush()
    * position = # of bytes written to stream so far
    * obj1Bytes = output[0:position-1]
+   *
    * serOut.write(obj2)
    * serOut.flush()
    * position2 = # of bytes written to stream so far
    * obj2Bytes = output[position:position2-1]
+   *
    * serIn.open([obj2bytes] concatenate [obj1bytes]) should return (obj2, obj1)
    * }}}
    *

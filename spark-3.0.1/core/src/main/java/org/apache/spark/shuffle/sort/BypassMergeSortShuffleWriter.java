@@ -126,15 +126,24 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
   @Override
   public void write(Iterator<Product2<K, V>> records) throws IOException {
     assert (partitionWriters == null);
+
+    /**
+     * 创建map端输出
+     */
     ShuffleMapOutputWriter mapOutputWriter = shuffleExecutorComponents
         .createMapOutputWriter(shuffleId, mapId, numPartitions);
+
     try {
       if (!records.hasNext()) {
+        /**
+         * 没有数据，直接返回
+         */
         partitionLengths = mapOutputWriter.commitAllPartitions();
         mapStatus = MapStatus$.MODULE$.apply(
           blockManager.shuffleServerId(), partitionLengths, mapId);
         return;
       }
+      // 序列化实例
       final SerializerInstance serInstance = serializer.newInstance();
       final long openStartTime = System.nanoTime();
       partitionWriters = new DiskBlockObjectWriter[numPartitions];
@@ -160,11 +169,21 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
 
       for (int i = 0; i < numPartitions; i++) {
         try (DiskBlockObjectWriter writer = partitionWriters[i]) {
+          /**
+           * commit 每一个分区的数据，并创建对应的FileSegment对象
+           */
           partitionWriterSegments[i] = writer.commitAndGet();
         }
       }
 
+      /**
+       * 将全部分区的数据合并写出
+       * 并创建索引文件
+       */
       partitionLengths = writePartitionedData(mapOutputWriter);
+      /**
+       * 更新状态
+       */
       mapStatus = MapStatus$.MODULE$.apply(
         blockManager.shuffleServerId(), partitionLengths, mapId);
     } catch (Exception e) {
@@ -197,6 +216,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
           final File file = partitionWriterSegments[i].file();
           ShufflePartitionWriter writer = mapOutputWriter.getPartitionWriter(i);
           if (file.exists()) {
+            // 使用NIO的方式进行数据拷贝
             if (transferToEnabled) {
               // Using WritableByteChannelWrapper to make resource closing consistent between
               // this implementation and UnsafeShuffleWriter.
@@ -219,6 +239,9 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       }
       partitionWriters = null;
     }
+    /**
+     * 创建索引
+     */
     return mapOutputWriter.commitAllPartitions();
   }
 

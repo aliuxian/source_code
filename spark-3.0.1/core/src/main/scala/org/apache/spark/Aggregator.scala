@@ -38,6 +38,9 @@ case class Aggregator[K, V, C] (
       iter: Iterator[_ <: Product2[K, V]],
       context: TaskContext): Iterator[(K, C)] = {
     val combiners = new ExternalAppendOnlyMap[K, V, C](createCombiner, mergeValue, mergeCombiners)
+    /**
+     * 聚合操作
+     */
     combiners.insertAll(iter)
     updateMetrics(context, combiners)
     combiners.iterator
@@ -47,8 +50,12 @@ case class Aggregator[K, V, C] (
       iter: Iterator[_ <: Product2[K, C]],
       context: TaskContext): Iterator[(K, C)] = {
     val combiners = new ExternalAppendOnlyMap[K, C, C](identity, mergeCombiners, mergeCombiners)
+    /**
+     * 聚合操作
+     */
     combiners.insertAll(iter)
     updateMetrics(context, combiners)
+    // 返回迭代器
     combiners.iterator
   }
 

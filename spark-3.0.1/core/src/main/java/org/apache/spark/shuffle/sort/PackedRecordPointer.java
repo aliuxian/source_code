@@ -78,6 +78,13 @@ final class PackedRecordPointer {
     assert (partitionId <= MAXIMUM_PARTITION_ID);
     // Note that without word alignment we can address 2^27 bytes = 128 megabytes per page.
     // Also note that this relies on some internals of how TaskMemoryManager encodes its addresses.
+    /**
+     * recordPointer 中高13位表示 pageNum
+     * recordPointer 中低27位表示 offset
+     *
+     * 将pageNum以及offset压缩到一个Long类型的低40位中
+     * 剩下的高24为用于表示分区号，所以要求分区数 不能超过 2^24 - 1
+     */
     final long pageNumber = (recordPointer & MASK_LONG_UPPER_13_BITS) >>> 24;
     final long compressedAddress = pageNumber | (recordPointer & MASK_LONG_LOWER_27_BITS);
     return (((long) partitionId) << 40) | compressedAddress;

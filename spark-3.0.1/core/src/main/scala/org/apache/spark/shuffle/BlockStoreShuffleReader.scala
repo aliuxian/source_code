@@ -66,6 +66,9 @@ private[spark] class BlockStoreShuffleReader[K, C](
 
   /** Read the combined key-values for this reduce task */
   override def read(): Iterator[Product2[K, C]] = {
+    /**
+     * 用于拉取数据
+     */
     val wrappedStreams = new ShuffleBlockFetcherIterator(
       context,
       blockManager.blockStoreClient,
@@ -82,6 +85,9 @@ private[spark] class BlockStoreShuffleReader[K, C](
       readMetrics,
       fetchContinuousBlocksInBatch).toCompletionIterator
 
+    /**
+     * 序列化器
+     */
     val serializerInstance = dep.serializer.newInstance()
 
     // Create a key/value iterator for each stream
@@ -105,6 +111,9 @@ private[spark] class BlockStoreShuffleReader[K, C](
 
     val aggregatedIter: Iterator[Product2[K, C]] = if (dep.aggregator.isDefined) {
       if (dep.mapSideCombine) {
+        /**
+         * 已经进行过map端聚合
+         */
         // We are reading values that are already combined
         val combinedKeyValuesIterator = interruptibleIter.asInstanceOf[Iterator[(K, C)]]
         dep.aggregator.get.combineCombinersByKey(combinedKeyValuesIterator, context)
@@ -120,6 +129,9 @@ private[spark] class BlockStoreShuffleReader[K, C](
     }
 
     // Sort the output if there is a sort ordering defined.
+    /**
+     * 是否需要排序，比如sortByKey
+     */
     val resultIter = dep.keyOrdering match {
       case Some(keyOrd: Ordering[K]) =>
         // Create an ExternalSorter to sort the data.

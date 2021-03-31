@@ -73,7 +73,7 @@ private[spark] class SortShuffleWriter[K, V, C](
     }
 
     /**
-     * 对结果进行排序
+     * 对结果进行排序以及combine（如果有combine）
      */
     sorter.insertAll(records)
 

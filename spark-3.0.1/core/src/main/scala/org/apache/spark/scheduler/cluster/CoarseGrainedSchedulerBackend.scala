@@ -304,6 +304,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
         }.toIndexedSeq
         scheduler.resourceOffers(workOffers)
       }
+
       if (taskDescs.nonEmpty) {
         /**
          *

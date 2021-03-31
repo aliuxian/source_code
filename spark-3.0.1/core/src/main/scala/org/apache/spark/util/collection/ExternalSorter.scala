@@ -223,16 +223,19 @@ private[spark] class ExternalSorter[K, V, C](
   private def maybeSpillCollection(usingMap: Boolean): Unit = {
     var estimatedSize = 0L
 
-    /**
-     * 需要溢写，就返回一个新的结构用来写
-     */
     if (usingMap) {
       estimatedSize = map.estimateSize()
+      /**
+       * 需要溢写，就返回一个新的结构用来写
+       */
       if (maybeSpill(map, estimatedSize)) {
         map = new PartitionedAppendOnlyMap[K, C]
       }
     } else {
       estimatedSize = buffer.estimateSize()
+      /**
+       * 需要溢写，就返回一个新的结构用来写
+       */
       if (maybeSpill(buffer, estimatedSize)) {
         buffer = new PartitionedPairBuffer[K, C]
       }
@@ -685,16 +688,23 @@ private[spark] class ExternalSorter[K, V, C](
       // Special case: if we have only in-memory data, we don't need to merge streams, and perhaps
       // we don't even need to sort by anything other than partition ID
       if (ordering.isEmpty) {
+        /**
+         * 如果不需要排序，就按照分区排序，然后按照分区分组返回一个迭代器
+         */
         // The user hasn't requested sorted keys, so only sort by partition ID, not key
         groupByPartition(destructiveIterator(collection.partitionedDestructiveSortedIterator(None)))
       } else {
         // We do need to sort by both partition ID and key
+        /**
+         * 要排序，按照分区和key来排序，按分区分组返回迭代器
+         */
         groupByPartition(destructiveIterator(
           collection.partitionedDestructiveSortedIterator(Some(keyComparator))))
       }
     } else {
       /**
        * 合并
+       * 对溢写出去的文件以及还在内存中的数据进行合并
        */
       // Merge spilled and in-memory data
       merge(spills, destructiveIterator(

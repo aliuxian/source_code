@@ -1180,11 +1180,22 @@ private[spark] class BlockManager(
     // Attempt to read the block from local or remote storage. If it's present, then we don't need
     // to go through the local-get-or-put path.
     get[T](blockId)(classTag) match {
+      /**
+       * block 中有，直接取
+       */
       case Some(block) =>
         return Left(block)
       case _ =>
-        // Need to compute the block.
+
+      /**
+       * 没有，需要去计算
+       */
+      // Need to compute the block.
     }
+
+    /**
+     * 在BlockManager中没有获取到数据，需要计算。
+     */
     // Initially we hold no locks on this block.
     doPutIterator(blockId, makeIterator, level, classTag, keepReadLock = true) match {
       case None =>
@@ -1200,6 +1211,10 @@ private[spark] class BlockManager(
         // acquires the lock again, so we need to call releaseLock() here so that the net number
         // of lock acquisitions is 1 (since the caller will only call release() once).
         releaseLock(blockId)
+
+        /**
+         *
+         */
         Left(blockResult)
       case Some(iter) =>
         // The put failed, likely because the data was too large to fit in memory and could not be
@@ -1362,12 +1377,22 @@ private[spark] class BlockManager(
       classTag: ClassTag[T],
       tellMaster: Boolean = true,
       keepReadLock: Boolean = false): Option[PartiallyUnrolledIterator[T]] = {
+
     doPut(blockId, level, classTag, tellMaster = tellMaster, keepReadLock = keepReadLock) { info =>
       val startTimeNs = System.nanoTime()
       var iteratorFromFailedMemoryStorePut: Option[PartiallyUnrolledIterator[T]] = None
       // Size of the block in bytes
       var size = 0L
+
+      /**
+       * 缓存到内存
+       */
       if (level.useMemory) {
+        /**
+         * 如果设置了内存和磁盘的缓存模式，那么先存到内存存不下就存磁盘
+         *
+         * 序列化或者不序列化
+         */
         // Put it in memory first, even if it also has useDisk set to true;
         // We will drop it to disk later if the memory store can't hold it.
         if (level.deserialized) {
@@ -1388,6 +1413,9 @@ private[spark] class BlockManager(
               }
           }
         } else { // !level.deserialized
+          /**
+           * 存到内存，并且不序列化
+           */
           memoryStore.putIteratorAsBytes(blockId, iterator(), classTag, level.memoryMode) match {
             case Right(s) =>
               size = s
@@ -1405,8 +1433,12 @@ private[spark] class BlockManager(
               }
           }
         }
+      }
 
-      } else if (level.useDisk) {
+      /**
+       * 缓存到磁盘
+       */
+      else if (level.useDisk) {
         diskStore.put(blockId) { channel =>
           val out = Channels.newOutputStream(channel)
           serializerManager.dataSerializeStream(blockId, out, iterator())(classTag)

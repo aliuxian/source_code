@@ -92,6 +92,9 @@ public abstract class MemoryConsumer {
    */
   public LongArray allocateArray(long size) {
     long required = size * 8L;
+    /**
+     *
+     */
     MemoryBlock page = taskMemoryManager.allocatePage(required, this);
     if (page == null || page.size() < required) {
       throwOom(page, required);

@@ -47,25 +47,34 @@ final class ShuffleInMemorySorter {
    *
    * Only part of the array will be used to store the pointers, the rest part is preserved as
    * temporary buffer for sorting.
+   *
+   * 数组一部分用于存储RecordPointer以及分区ID，一部分用于排序
    */
   private LongArray array;
 
   /**
    * Whether to use radix sort for sorting in-memory partition ids. Radix sort is much faster
    * but requires additional memory to be reserved memory as pointers are added.
+   * 是否使用基数排序，默认是开启的，设置为fasle，则使用Tim Sort
    */
   private final boolean useRadixSort;
 
   /**
    * The position in the pointer array where new records can be inserted.
+   * 指针数组中用于指向下一条record的插入位置
    */
   private int pos = 0;
 
   /**
    * How many records could be inserted, because part of the array should be left for sorting.
+   * 可以用来存储recordPointer的空间
    */
   private int usableCapacity = 0;
 
+  /**
+   * 指针数组初始化大小 4096 Byte
+   *
+   */
   private final int initialSize;
 
   ShuffleInMemorySorter(MemoryConsumer consumer, int initialSize, boolean useRadixSort) {
@@ -73,13 +82,16 @@ final class ShuffleInMemorySorter {
     assert (initialSize > 0);
     this.initialSize = initialSize;
     this.useRadixSort = useRadixSort;
+    /**
+     * initialSize = 4096B
+     */
     this.array = consumer.allocateArray(initialSize);
     this.usableCapacity = getUsableCapacity();
   }
 
   private int getUsableCapacity() {
-    // Radix sort requires same amount of used memory as buffer, Tim sort requires
-    // half of the used memory as buffer.
+    // Radix sort requires same amount of used memory as buffer,
+    // Tim sort requires half of the used memory as buffer.
     return (int) (array.size() / (useRadixSort ? 2 : 1.5));
   }
 
@@ -147,6 +159,15 @@ final class ShuffleInMemorySorter {
     if (!hasSpaceForAnotherRecord()) {
       throw new IllegalStateException("There is no space for new record");
     }
+    /**
+     * Record 组成：
+     *        partitionID + pageNum +  offsetInPage
+     *        24            13         27
+     * pageNum 以及 offset 都在 recordPointer中分别是高13位 和 低27位
+     *
+     * 将record 插入 pos位置
+     * pos++
+     */
     array.set(pos, PackedRecordPointer.packPointer(recordPointer, partitionId));
     pos++;
   }

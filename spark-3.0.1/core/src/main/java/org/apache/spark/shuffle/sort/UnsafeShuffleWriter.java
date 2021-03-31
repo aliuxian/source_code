@@ -174,7 +174,13 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     // generic throwables.
     boolean success = false;
     try {
+      /**
+       * records.hasNext()
+       */
       while (records.hasNext()) {
+        /**
+         *
+         */
         insertRecordIntoSorter(records.next());
       }
       closeAndWriteOutput();
@@ -224,6 +230,9 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       partitionLengths = mergeSpills(spills);
     } finally {
       for (SpillInfo spill : spills) {
+        /**
+         * 删除临时文件
+         */
         if (spill.file.exists() && !spill.file.delete()) {
           logger.error("Error while deleting spill file {}", spill.file.getPath());
         }
@@ -239,6 +248,9 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     final K key = record._1();
     final int partitionId = partitioner.getPartition(key);
     serBuffer.reset();
+    /**
+     * 将数据写入到buffer中
+     */
     serOutputStream.writeKey(key, OBJECT_CLASS_TAG);
     serOutputStream.writeValue(record._2(), OBJECT_CLASS_TAG);
     serOutputStream.flush();
@@ -246,6 +258,9 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     final int serializedRecordSize = serBuffer.size();
     assert (serializedRecordSize > 0);
 
+    /**
+     * 排序
+     */
     sorter.insertRecord(
       serBuffer.getBuf(), Platform.BYTE_ARRAY_OFFSET, serializedRecordSize, partitionId);
   }
@@ -310,17 +325,29 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       // write time, which appears to be consistent with the "not bypassing merge-sort" branch in
       // ExternalSorter.
       if (fastMergeEnabled && fastMergeIsSupported) {
+        /**
+         * 不需要压缩
+         */
         // Compression is disabled or we are using an IO compression codec that supports
         // decompression of concatenated compressed streams, so we can perform a fast spill merge
         // that doesn't need to interpret the spilled bytes.
         if (transferToEnabled && !encryptionEnabled) {
+          /**
+           * 不加密，使用NIO
+           */
           logger.debug("Using transferTo-based fast merge");
           mergeSpillsWithTransferTo(spills, mapWriter);
         } else {
+          /**
+           * 要加密
+           */
           logger.debug("Using fileStream-based fast merge");
           mergeSpillsWithFileStream(spills, mapWriter, null);
         }
       } else {
+        /**
+         * 要压缩
+         */
         logger.debug("Using slow merge");
         mergeSpillsWithFileStream(spills, mapWriter, compressionCodec);
       }
@@ -330,6 +357,9 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       // to be counted as shuffle write, but this will lead to double-counting of the final
       // SpillInfo's bytes.
       writeMetrics.decBytesWritten(spills[spills.length - 1].file.length());
+      /**
+       * commit 以及 生成索引文件
+       */
       partitionLengths = mapWriter.commitAllPartitions();
     } catch (Exception e) {
       try {

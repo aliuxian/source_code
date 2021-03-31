@@ -347,6 +347,9 @@ abstract class RDD[T: ClassTag](
   {
     if (isCheckpointedAndMaterialized) {
       // 有checkpoint，直接从checkpoint获取
+      /**
+       * 获取第一个父RDD，然后继续查看父RDD的数据是否存在，不存在继续获取父RDD的父RDD，直到找到checkpoint的数据
+       */
       firstParent[T].iterator(split, context)
     } else {
       // 执行计算
@@ -364,26 +367,37 @@ abstract class RDD[T: ClassTag](
     val blockId = RDDBlockId(id, partition.index)
     var readCachedBlock = true
     // This method is called on executors, so we need call SparkEnv.get instead of sc.env.
-    SparkEnv.get.blockManager.getOrElseUpdate(blockId, storageLevel, elementClassTag, () => {
-      readCachedBlock = false
-      computeOrReadCheckpoint(partition, context)
-    }) match {
+    SparkEnv.get.blockManager.getOrElseUpdate(
+      blockId,
+      storageLevel,
+      elementClassTag,
+      () => {
+        readCachedBlock = false
+        computeOrReadCheckpoint(partition, context)
+      }) match {
+      /**
+       * 直接找到数据
+       */
       case Left(blockResult) =>
-        if (readCachedBlock) {
-          val existingMetrics = context.taskMetrics().inputMetrics
-          existingMetrics.incBytesRead(blockResult.bytes)
-          new InterruptibleIterator[T](context, blockResult.data.asInstanceOf[Iterator[T]]) {
-            override def next(): T = {
-              existingMetrics.incRecordsRead(1)
-              delegate.next()
+          if (readCachedBlock) {
+            val existingMetrics = context.taskMetrics().inputMetrics
+            existingMetrics.incBytesRead(blockResult.bytes)
+            new InterruptibleIterator[T](context, blockResult.data.asInstanceOf[Iterator[T]]) {
+              override def next(): T = {
+                existingMetrics.incRecordsRead(1)
+                delegate.next()
+              }
             }
+          } else {
+            new InterruptibleIterator(context, blockResult.data.asInstanceOf[Iterator[T]])
           }
-        } else {
-          new InterruptibleIterator(context, blockResult.data.asInstanceOf[Iterator[T]])
-        }
+
+      /**
+       * 计算得到
+       */
       case Right(iter) =>
-        new InterruptibleIterator(context, iter.asInstanceOf[Iterator[T]])
-    }
+          new InterruptibleIterator(context, iter.asInstanceOf[Iterator[T]])
+      }
   }
 
   /**
