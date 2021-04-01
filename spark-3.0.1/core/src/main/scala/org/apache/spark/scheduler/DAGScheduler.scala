@@ -1265,6 +1265,7 @@ private[spark] class DAGScheduler(
         // 按照StageId从小到大提交
         // 每次只找它的父stage，不会找祖先stage
         val missing = getMissingParentStages(stage).sortBy(_.id)
+
         logDebug("missing: " + missing)
         if (missing.isEmpty) {
           // 没有父stage
@@ -1275,9 +1276,11 @@ private[spark] class DAGScheduler(
            */
           submitMissingTasks(stage, jobId.get)
         } else {
+
           for (parent <- missing) {
             submitStage(parent)
           }
+
           waitingStages += stage
         }
       }
@@ -1312,7 +1315,7 @@ private[spark] class DAGScheduler(
     val partitionsToCompute: Seq[Int] = stage.findMissingPartitions()
 
     // Use the scheduling pool, job group, description, etc. from an ActiveJob associated with this Stage
-    // 使用次stage所属的Job的调度池、job组，描述等
+    // 使用该stage所属的Job的调度池、job组，描述等
     val properties = jobIdToActiveJob(jobId).properties
 
     // 将该stage添加到running的stage中
@@ -1496,6 +1499,10 @@ private[spark] class DAGScheduler(
         case stage : ResultStage =>
           logDebug(s"Stage ${stage} is actually done; (partitions: ${stage.numPartitions})")
       }
+
+      /**
+       * 提交子Stage
+       */
       submitWaitingChildStages(stage)
     }
   }
