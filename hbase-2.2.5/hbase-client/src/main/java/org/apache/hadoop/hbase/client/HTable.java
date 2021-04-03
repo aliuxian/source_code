@@ -525,18 +525,35 @@ public class HTable implements Table {
 
   @Override
   public void put(final Put put) throws IOException {
+    /**
+     * 当前要插入的对象，序列化之后，大小不能超过10M
+     *
+     * hbase.client.keyvalue.maxsize  参数配置
+     */
     validatePut(put);
+
+    /**
+     * 创建ClientServiceCallable对象
+     *
+     * 最后会执行他的rpcCall方法
+     */
     ClientServiceCallable<Void> callable =
         new ClientServiceCallable<Void>(this.connection, getName(), put.getRow(),
             this.rpcControllerFactory.newController(), put.getPriority()) {
       @Override
       protected Void rpcCall() throws Exception {
+
         MutateRequest request =
             RequestConverter.buildMutateRequest(getLocation().getRegionInfo().getRegionName(), put);
         doMutate(request);
         return null;
       }
     };
+
+    /**
+     * 这个调用最后就会回到上面的callable的rpcCall方法
+     * .<Void> newCaller(this.writeRpcTimeoutMs)  ：  RpcRetryingCallerImpl
+     */
     rpcCallerFactory.<Void> newCaller(this.writeRpcTimeoutMs).callWithRetries(callable,
         this.operationTimeoutMs);
   }

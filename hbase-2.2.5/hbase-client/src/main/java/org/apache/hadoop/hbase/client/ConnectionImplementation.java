@@ -784,9 +784,17 @@ class ConnectionImplementation implements ClusterConnection, Closeable {
     if (tableName == null || tableName.getName().length == 0) {
       throw new IllegalArgumentException("table name cannot be null or zero length");
     }
+
+    /**
+     * 如果是meta表，就发请求给zk
+     */
     if (tableName.equals(TableName.META_TABLE_NAME)) {
       return locateMeta(tableName, useCache, replicaId);
     } else {
+      /**
+       * 普通表，发请求给meta所在的regionServer  去找region的位置
+       *
+       */
       // Region not in the cache - have to go to the meta RS
       return locateRegionInMeta(tableName, row, useCache, retry, replicaId);
     }
@@ -834,6 +842,9 @@ class ConnectionImplementation implements ClusterConnection, Closeable {
       boolean retry, int replicaId) throws IOException {
     // If we are supposed to be using the cache, look in the cache to see if we already have the
     // region.
+    /**
+     * 如果使用了cache   先到cache中找
+     */
     if (useCache) {
       RegionLocations locations = getCachedLocation(tableName, row);
       if (locations != null && locations.getRegionLocation(replicaId) != null) {

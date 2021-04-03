@@ -121,6 +121,12 @@ public class RpcRetryingCallerImpl<T> implements RpcRetryingCaller<T> {
 
         interceptor.intercept(context.prepare(callable, tries));
 
+        /**
+         * DDL    MasterCallable
+         * DML    RegionServerCallable
+         *
+         * 内部就是调用rpcCall方法
+         */
         return callable.call(getTimeout(callTimeout));
       } catch (PreemptiveFastFailException e) {
         throw e;

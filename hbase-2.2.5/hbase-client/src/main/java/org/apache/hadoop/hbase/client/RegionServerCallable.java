@@ -215,11 +215,26 @@ public abstract class RegionServerCallable<T, S> implements RetryingCallable<T> 
   @Override
   public void prepare(final boolean reload) throws IOException {
     // check table state if this is a retry
+    /**
+     * reload  不是 retry， 重试的话是不需要再去定位region的
+     * tableName不为null
+     * table不是meta表
+     * table必须是enable状态
+     */
     if (reload && tableName != null && !tableName.equals(TableName.META_TABLE_NAME)
         && getConnection().isTableDisabled(tableName)) {
       throw new TableNotEnabledException(tableName.getNameAsString() + " is disabled.");
     }
+
+    /**
+     * 构建一个RegionLocator对象
+     */
     try (RegionLocator regionLocator = connection.getRegionLocator(tableName)) {
+      /**
+       * 这个row就是Callable初始化的时候拿到的rowkey
+       *
+       * 该方法负责拿到rowkey在该表中的region的信息，封装在HRegionLocation中
+       */
       this.location = regionLocator.getRegionLocation(row);
     }
     if (this.location == null) {

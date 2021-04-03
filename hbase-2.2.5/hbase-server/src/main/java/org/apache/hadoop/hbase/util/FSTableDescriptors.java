@@ -217,8 +217,12 @@ public class FSTableDescriptors implements TableDescriptors {
   @Nullable
   public TableDescriptor get(final TableName tablename)
   throws IOException {
+    // 统计调用次数
     invocations++;
     if (TableName.META_TABLE_NAME.equals(tablename)) {
+      /**
+       * 当前要查询的表是meta，那么缓存命中次数+1，并将meta表的元数据返回
+       */
       cachehits++;
       return metaTableDescriptor;
     }
@@ -230,14 +234,24 @@ public class FSTableDescriptors implements TableDescriptors {
 
     if (usecache) {
       // Look in cache of descriptors.
+      /**
+       *       缓存中存在，直接获取并返回, 并将缓存命中次数+1
+        */
       TableDescriptor cachedtdm = this.cache.get(tablename);
       if (cachedtdm != null) {
         cachehits++;
         return cachedtdm;
       }
     }
+
+    /**
+     * 没有在缓存中找到，那么就构建该表的对象
+     */
     TableDescriptor tdmt = null;
     try {
+      /**
+       * 构建TableDescriptor对象
+       */
       tdmt = getTableDescriptorFromFs(fs, rootdir, tablename);
     } catch (NullPointerException e) {
       LOG.debug("Exception during readTableDecriptor. Current table name = "
@@ -250,9 +264,15 @@ public class FSTableDescriptors implements TableDescriptors {
     }
     // last HTD written wins
     if (usecache && tdmt != null) {
+      /**
+       * 如果要使用缓存，就更新到缓存中
+       */
       this.cache.put(tablename, tdmt);
     }
 
+    /**
+     * 返回结果
+     */
     return tdmt;
   }
 

@@ -1535,6 +1535,9 @@ public class MetaTableAccessor {
     List<Put> puts = new ArrayList<>();
     for (RegionInfo regionInfo : regionInfos) {
       if (RegionReplicaUtil.isDefaultReplica(regionInfo)) {
+        /**
+         * 构建Put对象
+         */
         Put put = makePutFromRegionInfo(regionInfo, ts);
         // New regions are added with initial state of CLOSED.
         addRegionStateToPut(put, RegionState.State.CLOSED);
@@ -1546,6 +1549,9 @@ public class MetaTableAccessor {
         puts.add(put);
       }
     }
+    /**
+     * 将数据写到meta表
+     */
     putsToMetaTable(connection, puts);
     LOG.info("Added {} regions to meta.", puts.size());
   }

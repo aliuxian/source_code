@@ -61,6 +61,9 @@ public class HRegionLocator implements RegionLocator {
   @Override
   public HRegionLocation getRegionLocation(byte[] row, int replicaId, boolean reload)
       throws IOException {
+    /**
+     * reload 原来是 false   true表示，如果启用了缓存，优先从缓存中获取region的定位信息
+     */
     return connection.locateRegion(tableName, row, !reload, true, replicaId)
       .getRegionLocation(replicaId);
   }
