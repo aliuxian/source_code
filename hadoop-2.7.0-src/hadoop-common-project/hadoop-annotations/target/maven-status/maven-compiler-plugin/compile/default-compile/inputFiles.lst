@@ -1,8 +1,0 @@
-/home/mi/source_code/hadoop-2.7.0-src/hadoop-common-project/hadoop-annotations/src/main/java/org/apache/hadoop/classification/InterfaceStability.java
-/home/mi/source_code/hadoop-2.7.0-src/hadoop-common-project/hadoop-annotations/src/main/java/org/apache/hadoop/classification/InterfaceAudience.java
-/home/mi/source_code/hadoop-2.7.0-src/hadoop-common-project/hadoop-annotations/src/main/java/org/apache/hadoop/classification/tools/ExcludePrivateAnnotationsStandardDoclet.java
-/home/mi/source_code/hadoop-2.7.0-src/hadoop-common-project/hadoop-annotations/src/main/java/org/apache/hadoop/classification/tools/RootDocProcessor.java
-/home/mi/source_code/hadoop-2.7.0-src/hadoop-common-project/hadoop-annotations/src/main/java/org/apache/hadoop/classification/tools/ExcludePrivateAnnotationsJDiffDoclet.java
-/home/mi/source_code/hadoop-2.7.0-src/hadoop-common-project/hadoop-annotations/src/main/java/org/apache/hadoop/classification/tools/StabilityOptions.java
-/home/mi/source_code/hadoop-2.7.0-src/hadoop-common-project/hadoop-annotations/src/main/java/org/apache/hadoop/classification/tools/IncludePublicAnnotationsStandardDoclet.java
-/home/mi/source_code/hadoop-2.7.0-src/hadoop-common-project/hadoop-annotations/src/main/java/org/apache/hadoop/classification/tools/package-info.java
