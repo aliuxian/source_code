@@ -107,6 +107,9 @@ public class CreateTableProcedure
             return Flow.NO_MORE_STATE;
           }
 
+          /**
+           *  协处理器的  pre操作
+           */
           preCreate(env);
           setNextState(CreateTableState.CREATE_TABLE_WRITE_FS_LAYOUT);
           break;
@@ -119,24 +122,41 @@ public class CreateTableProcedure
            * 创建该表在HDFS上的目录布局
            */
           newRegions = createFsLayout(env, tableDescriptor, newRegions);
+          // 更新状态
           setNextState(CreateTableState.CREATE_TABLE_ADD_TO_META);
           break;
         case CREATE_TABLE_ADD_TO_META:
+
+          /**
+           * 将表的元数据信息更新到meta表
+           */
           newRegions = addTableToMeta(env, tableDescriptor, newRegions);
           setNextState(CreateTableState.CREATE_TABLE_ASSIGN_REGIONS);
           break;
         case CREATE_TABLE_ASSIGN_REGIONS:
           setEnablingState(env, getTableName());
+          /**
+           * 分配region
+           * createRoundRobinAssignProcedures 创建一个轮询（本质是一个随机）的分配器
+           * 内部创建一个新的procedure，来完成分配
+           */
           addChildProcedure(env.getAssignmentManager()
             .createRoundRobinAssignProcedures(newRegions));
           setNextState(CreateTableState.CREATE_TABLE_UPDATE_DESC_CACHE);
           break;
         case CREATE_TABLE_UPDATE_DESC_CACHE:
           setEnabledState(env, getTableName());
+          /**
+           * 更新缓存
+           * 新创建了一张表，就把该表的元数据更新到缓存中
+           */
           updateTableDescCache(env, getTableName());
           setNextState(CreateTableState.CREATE_TABLE_POST_OPERATION);
           break;
         case CREATE_TABLE_POST_OPERATION:
+          /**
+           * 协处理器  post操作
+           */
           postCreate(env);
           return Flow.NO_MORE_STATE;
         default:
@@ -264,6 +284,9 @@ public class CreateTableProcedure
       return false;
     }
 
+    /**
+     * 列簇至少要有一个
+     */
     // check that we have at least 1 CF
     if (tableDescriptor.getColumnFamilyCount() == 0) {
       setFailure("master-create-table", new DoNotRetryIOException("Table " +
@@ -370,9 +393,15 @@ public class CreateTableProcedure
 
     // Add replicas if needed
     // we need to create regions with replicaIds starting from 1
+    /**
+     * 一张表可能有多个region，
+     */
     List<RegionInfo> newRegions = RegionReplicaUtil.addReplicas(tableDescriptor, regions, 1,
       tableDescriptor.getRegionReplication());
 
+    /**
+     * 将region的信息更新到meta表
+     */
     // Add regions to META
     addRegionsToMeta(env, tableDescriptor, newRegions);
 
@@ -403,12 +432,16 @@ public class CreateTableProcedure
   private static void addRegionsToMeta(final MasterProcedureEnv env,
       final TableDescriptor tableDescriptor,
       final List<RegionInfo> regionInfos) throws IOException {
+    /**
+     * MetaTableAccessor   这个类负责一切跟meta表的通信
+     */
     MetaTableAccessor.addRegionsToMeta(env.getMasterServices().getConnection(),
       regionInfos, tableDescriptor.getRegionReplication());
   }
 
   protected static void updateTableDescCache(final MasterProcedureEnv env,
       final TableName tableName) throws IOException {
+
     env.getMasterServices().getTableDescriptors().get(tableName);
   }
 

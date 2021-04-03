@@ -337,9 +337,16 @@ public class TransitRegionStateProcedure
     try {
       switch (state) {
         case REGION_STATE_TRANSITION_GET_ASSIGN_CANDIDATE:
+          /**
+           * 分配位置
+           */
           queueAssign(env, regionNode);
           return Flow.HAS_MORE_STATE;
         case REGION_STATE_TRANSITION_OPEN:
+
+          /**
+           * 确认每一个region是否处于Open的状态
+           */
           openRegion(env, regionNode);
           return Flow.HAS_MORE_STATE;
         case REGION_STATE_TRANSITION_CONFIRM_OPENED:
