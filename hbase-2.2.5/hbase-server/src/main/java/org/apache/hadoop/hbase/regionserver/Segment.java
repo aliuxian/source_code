@@ -314,7 +314,9 @@ public abstract class Segment implements MemStoreSizing {
 
   protected void internalAdd(Cell cell, boolean mslabUsed, MemStoreSizing memstoreSizing,
       boolean sizeAddedPreOperation) {
+
     boolean succ = getCellSet().add(cell);
+
     updateMetaInfo(cell, succ, mslabUsed, memstoreSizing, sizeAddedPreOperation);
   }
 

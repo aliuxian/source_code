@@ -543,8 +543,14 @@ public class HTable implements Table {
       @Override
       protected Void rpcCall() throws Exception {
 
+        /**
+         * 构建MutateRequest 只要是对集群产生改变的  就会 封装为 MutateRequest
+         */
         MutateRequest request =
             RequestConverter.buildMutateRequest(getLocation().getRegionInfo().getRegionName(), put);
+        /**
+         *
+         */
         doMutate(request);
         return null;
       }

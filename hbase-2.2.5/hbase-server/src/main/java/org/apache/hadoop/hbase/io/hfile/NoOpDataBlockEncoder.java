@@ -52,6 +52,10 @@ public class NoOpDataBlockEncoder implements HFileDataBlockEncoder {
     NoneEncodingState state = (NoneEncodingState) encodingCtx
         .getEncodingState();
     NoneEncoder encoder = state.encoder;
+
+    /**
+     * 编码之后的数据写出
+     */
     return encoder.write(cell);
   }
 

@@ -61,11 +61,18 @@ public class DefaultStoreFlusher extends StoreFlusher {
       synchronized (flushLock) {
         status.setStatus("Flushing " + store + ": creating writer");
         // Write the map out to the disk
+
+        /**
+         * 构建writer   StoreFileWriter
+         */
         writer = store.createWriterInTmp(cellsCount,
             store.getColumnFamilyDescriptor().getCompressionType(), false, true,
             snapshot.isTagsPresent(), false);
         IOException e = null;
         try {
+          /**
+           * 完成flush操作
+           */
           performFlush(scanner, writer, smallestReadPoint, throughputController);
         } catch (IOException ioe) {
           e = ioe;

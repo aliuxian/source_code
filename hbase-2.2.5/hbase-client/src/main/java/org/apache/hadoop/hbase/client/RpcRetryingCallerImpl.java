@@ -119,6 +119,9 @@ public class RpcRetryingCallerImpl<T> implements RpcRetryingCaller<T> {
         // bad cache entries are cleared in the call to RetryingCallable#throwable() in catch block
         callable.prepare(tries != 0);
 
+        /**
+         * 里面啥也没做
+         */
         interceptor.intercept(context.prepare(callable, tries));
 
         /**

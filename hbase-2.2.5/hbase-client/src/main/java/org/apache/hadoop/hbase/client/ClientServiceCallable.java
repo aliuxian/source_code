@@ -52,6 +52,11 @@ public abstract class ClientServiceCallable<T> extends
 
   protected ClientProtos.MutateResponse doMutate(ClientProtos.MutateRequest request)
   throws org.apache.hbase.thirdparty.com.google.protobuf.ServiceException {
+    /**
+     * DML   发送请求给HRegionServer  =》  RSRpcService
+     *
+     * HBase的RPC实现是 netty  +  Protobuf
+     */
     return getStub().mutate(getRpcController(), request);
   }
 }

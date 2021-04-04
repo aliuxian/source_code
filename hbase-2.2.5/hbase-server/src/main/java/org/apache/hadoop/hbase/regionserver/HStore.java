@@ -771,6 +771,9 @@ public class HStore implements Store, HeapSize, StoreConfigInformation, Propagat
         LOG.trace(this.getTableName() + "tableName={}, encodedName={}, columnFamilyName={} is " +
             "too busy!", this.getRegionInfo().getEncodedName(), this .getColumnFamilyName());
       }
+      /**
+       * 添加到memstore中
+       */
       memstore.add(cells, memstoreSizing);
     } finally {
       lock.readLock().unlock();
@@ -1041,6 +1044,10 @@ public class HStore implements Store, HeapSize, StoreConfigInformation, Propagat
     IOException lastException = null;
     for (int i = 0; i < flushRetriesNumber; i++) {
       try {
+
+        /**
+         * DefaultStoreFlusher
+         */
         List<Path> pathNames =
             flusher.flushSnapshot(snapshot, logCacheFlushId, status, throughputController, tracker);
         Path lastPathName = null;
@@ -2340,6 +2347,10 @@ public class HStore implements Store, HeapSize, StoreConfigInformation, Propagat
       RegionServerServices rsService = region.getRegionServerServices();
       ThroughputController throughputController =
           rsService == null ? null : rsService.getFlushThroughputController();
+
+      /**
+       *
+       */
       tempFiles =
           HStore.this.flushCache(cacheFlushSeqNum, snapshot, status, throughputController, tracker);
     }

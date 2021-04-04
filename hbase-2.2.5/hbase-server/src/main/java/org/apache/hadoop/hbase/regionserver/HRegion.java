@@ -2403,6 +2403,9 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
       try {
         Collection<HStore> specificStoresToFlush =
             forceFlushAllStores ? stores.values() : flushPolicy.selectStoresToFlush();
+        /**
+         *
+         */
         FlushResultImpl fs =
             internalFlushcache(specificStoresToFlush, status, writeFlushRequestWalMarker, tracker);
 
@@ -2539,9 +2542,15 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
   protected FlushResultImpl internalFlushcache(WAL wal, long myseqid,
       Collection<HStore> storesToFlush, MonitoredTask status, boolean writeFlushWalMarker,
       FlushLifeCycleTracker tracker) throws IOException {
+    /**
+     * 准备
+     */
     PrepareFlushResult result =
         internalPrepareFlushCache(wal, myseqid, storesToFlush, status, writeFlushWalMarker, tracker);
     if (result.result == null) {
+      /**
+       * 写入
+       */
       return internalFlushCacheAndCommit(wal, status, result, storesToFlush);
     } else {
       return result.result; // early exit due to failure from prepare stage
@@ -2809,6 +2818,9 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
       // tmp directory.
 
       for (StoreFlushContext flush : storeFlushCtxs.values()) {
+        /**
+         *
+         */
         flush.flushCache(status);
       }
 
@@ -3120,18 +3132,36 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
     PrivateCellUtil.setTimestamp(cell, getCell.getTimestamp());
   }
 
+  /**
+   * 先记录操作日志
+   * 更新数据到memstore
+   * 判断是否需要进行flush
+   */
   @Override
   public void put(Put put) throws IOException {
+    // 检查region是否只是可读
     checkReadOnly();
 
     // Do a rough check that we have resources to accept a write.  The check is
     // 'rough' in that between the resource check and the call to obtain a
     // read lock, resources may run out.  For now, the thought is that this
     // will be extremely rare; we'll deal with it when it happens.
+    /**
+     * 检查资源
+     *
+     * 做一个全局资源检查，如果全部的memstore大小超过了512M就会进行flush，而且会阻塞写请求
+     */
     checkResources();
+
+    /**
+     * 修改状态，将region的状态修改成PUT
+     */
     startRegionOperation(Operation.PUT);
     try {
       // All edits for the given row (across all column families) must happen atomically.
+      /**
+       * 真正完成Put操作，完成之后也会判断是否需要进行flush
+       */
       doBatchMutate(put);
     } finally {
       closeRegionOperation(Operation.PUT);
@@ -3256,6 +3286,9 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
         if (isInReplay() || getMutation(index).getDurability() == Durability.SKIP_WAL) {
           region.updateSequenceId(familyCellMaps[index].values(), writeNumber);
         }
+        /**
+         * 根据列簇信息，插入到对应的memstore
+         */
         applyFamilyMapToMemStore(familyCellMaps[index], memStoreAccounting);
         return true;
       });
@@ -3566,6 +3599,9 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
         byte[] family = e.getKey();
         List<Cell> cells = e.getValue();
         assert cells instanceof RandomAccess;
+        /**
+         *
+         */
         region.applyToMemStore(region.getStore(family), cells, false, memstoreAccounting);
       }
     }
@@ -3731,6 +3767,7 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
       if (writeEntry == null) {
         writeEntry = region.mvcc.begin();
       }
+
       super.writeMiniBatchOperationsToMemStore(miniBatchOp, writeEntry.getWriteNumber());
       return writeEntry;
     }
@@ -4066,9 +4103,13 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
     batchOp.startRegionOperation();
     try {
       while (!batchOp.isDone()) {
+
+        // ReadOnly检查
         if (!batchOp.isInReplay()) {
           checkReadOnly();
         }
+
+        // 再次资源检查
         checkResources();
 
         if (!initialized) {
@@ -4078,7 +4119,15 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
           batchOp.checkAndPrepare();
           initialized = true;
         }
+
+        /**
+         * 将数据插入到memstore
+         */
         doMiniBatchMutate(batchOp);
+
+        /**
+         * 是否需要进行flush
+         */
         requestFlushIfNeeded();
       }
     } finally {
@@ -4108,6 +4157,9 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
     try {
       // STEP 1. Try to acquire as many locks as we can and build mini-batch of operations with
       // locked rows
+      /**
+       * 获取行锁，尽可能多的获取涉及到的行
+       */
       miniBatchOp = batchOp.lockRowsAndBuildMiniBatch(acquiredRowLocks);
 
       // We've now grabbed as many mutations off the list as we can
@@ -4120,12 +4172,19 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
       lock(this.updatesLock.readLock(), miniBatchOp.getReadyToWriteCount());
       locked = true;
 
+      /**
+       * 更新时间戳
+       */
       // STEP 2. Update mini batch of all operations in progress with  LATEST_TIMESTAMP timestamp
       // We should record the timestamp only after we have acquired the rowLock,
       // otherwise, newer puts/deletes are not guaranteed to have a newer timestamp
       long now = EnvironmentEdgeManager.currentTime();
       batchOp.prepareMiniBatchOperations(miniBatchOp, now, acquiredRowLocks);
 
+      /**
+       * 构造WALEdit对象
+       * 每一个rowkey都有一条日志，所以是一个List集合
+       */
       // STEP 3. Build WAL edit
       List<Pair<NonceKey, WALEdit>> walEdits = batchOp.buildWALEdits(miniBatchOp);
 
@@ -4136,6 +4195,9 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
         NonceKey nonceKey = nonceKeyWALEditPair.getFirst();
 
         if (walEdit != null && !walEdit.isEmpty()) {
+          /**
+           * 记录操作日志
+           */
           writeEntry = doWALAppend(walEdit, batchOp.durability, batchOp.getClusterIds(), now,
               nonceKey.getNonceGroup(), nonceKey.getNonce(), batchOp.getOrigLogSeqNum());
         }
@@ -4147,10 +4209,16 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
         }
       }
 
+      /**
+       * 写数据到memstore中
+       */
       // STEP 5. Write back to memStore
       // NOTE: writeEntry can be null here
       writeEntry = batchOp.writeMiniBatchOperationsToMemStore(miniBatchOp, writeEntry);
 
+      /**
+       * 完成写入操作
+       */
       // STEP 6. Complete MiniBatchOperations: If required calls postBatchMutate() CP hook and
       // complete mvcc for last writeEntry
       batchOp.completeMiniBatchOperations(miniBatchOp, writeEntry);
@@ -4344,8 +4412,13 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
 
 
   private void doBatchMutate(Mutation mutation) throws IOException {
+
+
     // Currently this is only called for puts and deletes, so no nonces.
     OperationStatus[] batchMutate = this.batchMutate(new Mutation[]{mutation});
+
+
+
     if (batchMutate[0].getOperationStatusCode().equals(OperationStatusCode.SANITY_CHECK_FAILURE)) {
       throw new FailedSanityCheckException(batchMutate[0].getExceptionMsg());
     } else if (batchMutate[0].getOperationStatusCode().equals(OperationStatusCode.BAD_FAMILY)) {
@@ -4443,9 +4516,20 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
     // If catalog region, do not impose resource constraints or block updates.
     if (this.getRegionInfo().isMetaRegion()) return;
 
+    /**
+     * blockingMemStoreSize  = 128m * 4   全局的memstore大小
+     * hbase.hregion.memstore.flush.size = 128m   当个region的memstore大小
+     * hbase,hregion.memstore.block.multiplier = 4
+     */
     MemStoreSize mss = this.memStoreSizing.getMemStoreSize();
     if (mss.getHeapSize() + mss.getOffHeapSize() > this.blockingMemStoreSize) {
+      /**
+       * 阻塞的请求个数
+       */
       blockedRequestsCount.increment();
+      /**
+       * 进行flush
+       */
       requestFlush();
       // Don't print current limit because it will vary too much. The message is used as a key
       // over in RetriesExhaustedWithDetailsException processing.
@@ -8802,6 +8886,9 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
     }
     if (shouldFlush) {
       // Make request outside of synchronize block; HBASE-818.
+      /**
+       * this.rsServices.getFlushRequester()  返回MemStoreFlusher
+       */
       this.rsServices.getFlushRequester().requestFlush(this, false, tracker);
       if (LOG.isDebugEnabled()) {
         LOG.debug("Flush requested on " + this.getRegionInfo().getEncodedName());

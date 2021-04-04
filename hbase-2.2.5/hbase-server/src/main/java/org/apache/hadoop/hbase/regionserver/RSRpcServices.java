@@ -2882,12 +2882,26 @@ public class RSRpcServices implements HBaseRPCErrorHandler,
       controller.setCellScanner(null);
     }
     try {
+      /**
+       * 确保regionserver是正常运行的
+       */
       checkOpen();
+
       requestCount.increment();
       rpcMutateRequestCount.increment();
+
+      /**
+       * 每一个HRegionServer的内部都有一个成员变量  onlineRegions<RegionName, RegionInfo>  保存所有正常提供服务的Region
+       * 获取要操作的region
+       */
       region = getRegion(request.getRegion());
+
       MutateResponse.Builder builder = MutateResponse.newBuilder();
       MutationProto mutation = request.getMutation();
+
+      /**
+       * 申请metastore
+       */
       if (!region.getRegionInfo().isMetaRegion()) {
         regionServer.cacheFlusher.reclaimMemStoreMemory();
       }
@@ -2909,7 +2923,9 @@ public class RSRpcServices implements HBaseRPCErrorHandler,
           r = increment(region, quota, mutation, cellScanner, nonceGroup, spaceQuotaEnforcement);
           break;
         case PUT:
+          // 反序列化Put对象
           Put put = ProtobufUtil.toPut(mutation, cellScanner);
+          // 检查数据量大小
           checkCellSizeLimit(region, put);
           // Throws an exception when violated
           spaceQuotaEnforcement.getPolicyEnforcement(region).check(put);
@@ -2939,6 +2955,10 @@ public class RSRpcServices implements HBaseRPCErrorHandler,
               processed = result;
             }
           } else {
+            /**
+             * clientTable.put()
+             * regionServer.put()
+             */
             region.put(put);
             processed = Boolean.TRUE;
           }

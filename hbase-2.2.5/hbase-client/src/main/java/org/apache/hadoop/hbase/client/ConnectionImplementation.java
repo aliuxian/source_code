@@ -768,6 +768,9 @@ class ConnectionImplementation implements ClusterConnection, Closeable {
       throw new TableNotEnabledException(tableName.getNameAsString() + " is disabled.");
     }
 
+    /**
+     * 查找某个rowkey所在的region的位置
+     */
     return locateRegion(tableName, row, false, true, replicaId);
   }
 
@@ -785,10 +788,13 @@ class ConnectionImplementation implements ClusterConnection, Closeable {
       throw new IllegalArgumentException("table name cannot be null or zero length");
     }
 
-    /**
-     * 如果是meta表，就发请求给zk
-     */
+
     if (tableName.equals(TableName.META_TABLE_NAME)) {
+      /**
+       * 如果是meta表，就发请求给zk
+       *
+       * meta表可能会有多个region，这些region的位置信息存储在zk中
+       */
       return locateMeta(tableName, useCache, replicaId);
     } else {
       /**
@@ -807,6 +813,9 @@ class ConnectionImplementation implements ClusterConnection, Closeable {
     // key in MetaCache.
     byte[] metaCacheKey = HConstants.EMPTY_START_ROW; // use byte[0] as the row for meta
     RegionLocations locations = null;
+    /**
+     * 查看缓存中没有
+     */
     if (useCache) {
       locations = getCachedLocation(tableName, metaCacheKey);
       if (locations != null && locations.getRegionLocation(replicaId) != null) {
@@ -818,6 +827,9 @@ class ConnectionImplementation implements ClusterConnection, Closeable {
     synchronized (metaRegionLock) {
       // Check the cache again for a hit in case some other thread made the
       // same query while we were waiting on the lock.
+      /**
+       * 再次查看缓存总有没有
+       */
       if (useCache) {
         locations = getCachedLocation(tableName, metaCacheKey);
         if (locations != null && locations.getRegionLocation(replicaId) != null) {
@@ -825,9 +837,17 @@ class ConnectionImplementation implements ClusterConnection, Closeable {
         }
       }
 
+      /**
+       * 到zk中获取meta表 的region的位置信息
+       * registry = ZKAsyncRegistry  用于跟zk打交道的
+       */
       // Look up from zookeeper
       locations = get(this.registry.getMetaRegionLocation());
+
       if (locations != null) {
+        /**
+         * 将获取的信息加入到缓存中
+         */
         cacheLocation(tableName, locations);
       }
     }
@@ -854,28 +874,53 @@ class ConnectionImplementation implements ClusterConnection, Closeable {
     // build the key of the meta region we should be looking for.
     // the extra 9's on the end are necessary to allow "exact" matches
     // without knowing the precise region names.
+    /**
+     * 要操作的表的元数据在meta表的什么区间
+     *
+     * 每一张表的元数据都是在一起的。
+     */
     byte[] metaStartKey = RegionInfo.createRegionName(tableName, row, HConstants.NINES, false);
     byte[] metaStopKey =
       RegionInfo.createRegionName(tableName, HConstants.EMPTY_START_ROW, "", false);
+
+    /**
+     * 对该区间进行扫描
+     */
     Scan s = new Scan().withStartRow(metaStartKey).withStopRow(metaStopKey, true)
       .addFamily(HConstants.CATALOG_FAMILY).setReversed(true).setCaching(5)
       .setReadType(ReadType.PREAD);
+
     if (this.useMetaReplicas) {
       s.setConsistency(Consistency.TIMELINE);
     }
+
+    /***
+     * 最大重试次数，默认15次
+     */
     int maxAttempts = (retry ? numTries : 1);
     boolean relocateMeta = false;
+
+    /**
+     * 一直重试
+     */
     for (int tries = 0; ; tries++) {
       if (tries >= maxAttempts) {
         throw new NoServerForRegionException("Unable to find region for "
             + Bytes.toStringBinary(row) + " in " + tableName + " after " + tries + " tries.");
       }
+
+      /**
+       * 一个客户端可能有多个线程同时操作表
+       */
       if (useCache) {
         RegionLocations locations = getCachedLocation(tableName, row);
         if (locations != null && locations.getRegionLocation(replicaId) != null) {
           return locations;
         }
       } else {
+        /**
+         * 如果不使用缓存机制，那么清空缓存
+         */
         // If we are not supposed to be using the cache, delete any existing cached location
         // so it won't interfere.
         // We are only supposed to clean the cache for the specific replicaId
@@ -885,22 +930,42 @@ class ConnectionImplementation implements ClusterConnection, Closeable {
       long pauseBase = this.pause;
       userRegionLock.lock();
       try {
+        /**
+         * 再次检查缓存，
+         */
         if (useCache) {// re-check cache after get lock
           RegionLocations locations = getCachedLocation(tableName, row);
           if (locations != null && locations.getRegionLocation(replicaId) != null) {
             return locations;
           }
         }
+
+        /**
+         * 第一次的时候relocateMeta为false，并不会去查找meta表
+         * 因为客户端会缓存meta的信息，所以默认是false
+         *
+         * 如果变为了true，那么证明cache中没有缓存meta的信息，或者缓存的信息已经失效了，
+         */
         if (relocateMeta) {
+          /**
+           * 定位meta表的region位置,并且将获取到的数据放到了缓存中。
+           */
           relocateRegion(TableName.META_TABLE_NAME, HConstants.EMPTY_START_ROW,
             RegionInfo.DEFAULT_REPLICA_ID);
         }
+
         s.resetMvccReadPoint();
+
+
         try (ReversedClientScanner rcs =
           new ReversedClientScanner(conf, s, TableName.META_TABLE_NAME, this, rpcCallerFactory,
             rpcControllerFactory, getMetaLookupPool(), metaReplicaCallTimeoutScanInMicroSecond)) {
           boolean tableNotFound = true;
+
           for (;;) {
+            /**
+             * 获取region的位置
+             */
             Result regionInfoRow = rcs.next();
             if (regionInfoRow == null) {
               if (tableNotFound) {
@@ -911,11 +976,18 @@ class ConnectionImplementation implements ClusterConnection, Closeable {
               }
             }
             tableNotFound = false;
+
+            /**
+             * 在meta表中扫描得到我们的rowkey所在的用户表的region的位置信息
+             */
             // convert the row result into the HRegionLocation we need!
             RegionLocations locations = MetaTableAccessor.getRegionLocations(regionInfoRow);
             if (locations == null || locations.getRegionLocation(replicaId) == null) {
               throw new IOException("RegionInfo null in " + tableName + ", row=" + regionInfoRow);
             }
+            /**
+             * 获取结果需要的region
+             */
             RegionInfo regionInfo = locations.getRegionLocation(replicaId).getRegion();
             if (regionInfo == null) {
               throw new IOException("RegionInfo null or empty in " + TableName.META_TABLE_NAME +
@@ -948,6 +1020,10 @@ class ConnectionImplementation implements ClusterConnection, Closeable {
                 "hbase:meta says the region " + regionInfo.getRegionNameAsString() +
                   " is managed by the server " + serverName + ", but it is dead.");
             }
+
+            /***
+             * 将用户表的region信息也缓存起来
+             */
             // Instantiate the location
             cacheLocation(tableName, locations);
             return locations;
@@ -974,6 +1050,12 @@ class ConnectionImplementation implements ClusterConnection, Closeable {
           throw e;
         }
         // Only relocate the parent region if necessary
+        /**
+         * 如果出现了异常，并且异常不是RegionOfflineException 和 NoServerForRegionException
+         * 那么就认为是缺少meta表的信息
+         *
+         * 就更新relocateMeta 为true   下一次循环的时候就回去查meta表的信息
+         */
         relocateMeta =
           !(e instanceof RegionOfflineException || e instanceof NoServerForRegionException);
       } finally {

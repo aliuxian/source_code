@@ -331,7 +331,11 @@ class MemStoreFlusher implements FlushRequester {
         FlushQueueEntry fqe = null;
         try {
           wakeupPending.set(false); // allow someone to wake us up again
+          /**
+           *
+           */
           fqe = flushQueue.poll(threadWakeFrequency, TimeUnit.MILLISECONDS);
+
           if (fqe == null || fqe == WAKEUPFLUSH_INSTANCE) {
             FlushType type = isAboveLowWaterMark();
             if (type != FlushType.NORMAL) {
@@ -357,6 +361,9 @@ class MemStoreFlusher implements FlushRequester {
             continue;
           }
           FlushRegionEntry fre = (FlushRegionEntry) fqe;
+          /**
+           *
+           */
           if (!flushRegion(fre)) {
             break;
           }
@@ -462,6 +469,9 @@ class MemStoreFlusher implements FlushRequester {
         // queue. It'll come out near immediately.
         FlushRegionEntry fqe = new FlushRegionEntry(r, forceFlushAllStores, tracker);
         this.regionsInQueue.put(r, fqe);
+        /**
+         * 加入队列，那么必然有一个地方会将其取出来处理   FlushHandler.run()
+         */
         this.flushQueue.add(fqe);
         r.incrementFlushesQueuedCount();
         return true;
@@ -544,6 +554,9 @@ class MemStoreFlusher implements FlushRequester {
    */
   private boolean flushRegion(final FlushRegionEntry fqe) {
     HRegion region = fqe.region;
+    /**
+     * 不是meta表，并且storeFile超过阈值了
+     */
     if (!region.getRegionInfo().isMetaRegion() && isTooManyStoreFiles(region)) {
       if (fqe.isMaximumWait(this.blockingWaitTime)) {
         LOG.info("Waited " + (EnvironmentEdgeManager.currentTime() - fqe.createTime) +
@@ -557,8 +570,14 @@ class MemStoreFlusher implements FlushRequester {
           LOG.warn("{} has too many store files({}); delaying flush up to {} ms",
               region.getRegionInfo().getEncodedName(), getStoreFileCount(region),
               this.blockingWaitTime);
+          /**
+           *
+           */
           if (!this.server.compactSplitThread.requestSplit(region)) {
             try {
+              /**
+               * 执行compact
+               */
               this.server.compactSplitThread.requestSystemCompaction(region,
                 Thread.currentThread().getName());
             } catch (IOException e) {
@@ -577,6 +596,9 @@ class MemStoreFlusher implements FlushRequester {
         return true;
       }
     }
+    /**
+     * flush操作
+     */
     return flushRegion(region, false, fqe.isForceFlushAllStores(), fqe.getTracker());
   }
 
@@ -608,13 +630,19 @@ class MemStoreFlusher implements FlushRequester {
     lock.readLock().lock();
     try {
       notifyFlushRequest(region, emergencyFlush);
+
       FlushResult flushResult = region.flushcache(forceFlushAllStores, false, tracker);
+
+      // 是否需要compact
       boolean shouldCompact = flushResult.isCompactionNeeded();
       // We just want to check the size
+      // 是否需要split
       boolean shouldSplit = region.checkSplit() != null;
       if (shouldSplit) {
+
         this.server.compactSplitThread.requestSplit(region);
       } else if (shouldCompact) {
+
         server.compactSplitThread.requestSystemCompaction(region, Thread.currentThread().getName());
       }
     } catch (DroppedSnapshotException ex) {

@@ -263,6 +263,10 @@ public final class ReadOnlyZKClient implements Closeable {
 
       @Override
       protected void doExec(ZooKeeper zk) {
+        /**
+         * 获取节点下的数据
+         * /hbase/meta-region-server  获取 meta-region-server 这个节点对应的regionserver的地址
+         */
         zk.getData(path, false,
             (rc, path, ctx, data, stat) -> onComplete(zk, rc, data, true), null);
       }

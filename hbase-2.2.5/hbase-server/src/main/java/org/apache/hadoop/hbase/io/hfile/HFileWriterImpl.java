@@ -740,6 +740,9 @@ public class HFileWriterImpl implements HFile.Writer {
       newBlock();
     }
 
+    /**
+     *
+     */
     blockWriter.write(cell);
 
     totalKeyLength += PrivateCellUtil.estimatedSerializedSizeOfKey(cell);

@@ -811,23 +811,51 @@ public class KeyValueUtil {
       int tlen = cell.getTagsLength();
       int size = 0;
       // write key length
+      /**
+       * key长度
+       */
       int klen = keyLength(rlen, flen, qlen);
       ByteBufferUtils.putInt(out, klen);
       // write value length
+      /**
+       * value长度
+       */
       ByteBufferUtils.putInt(out, vlen);
       // Write rowkey - 2 bytes rk length followed by rowkey bytes
+      /**
+       * rowkey 的长度
+       */
       StreamUtils.writeShort(out, rlen);
+      /**
+       *
+       */
       out.write(cell.getRowArray(), cell.getRowOffset(), rlen);
       // Write cf - 1 byte of cf length followed by the family bytes
+      /**
+       * cf的长度
+       * cf的信息
+       */
       out.write(flen);
       out.write(cell.getFamilyArray(), cell.getFamilyOffset(), flen);
+      /**
+       * qualifier的信息
+       */
       // write qualifier
       out.write(cell.getQualifierArray(), cell.getQualifierOffset(), qlen);
+      /**
+       * 时间戳
+       */
       // write timestamp
       StreamUtils.writeLong(out, cell.getTimestamp());
       // write the type
+      /**
+       * Type 信息
+       */
       out.write(cell.getTypeByte());
       // write value
+      /**
+       * 写出value
+       */
       out.write(cell.getValueArray(), cell.getValueOffset(), vlen);
       size = klen + vlen + KeyValue.KEYVALUE_INFRASTRUCTURE_SIZE;
       // write tags if we have to

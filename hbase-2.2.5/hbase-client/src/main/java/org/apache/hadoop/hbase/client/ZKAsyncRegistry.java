@@ -144,6 +144,9 @@ class ZKAsyncRegistry implements AsyncRegistry {
       int replicaId = znodePaths.getMetaReplicaIdFromZnode(metaReplicaZNode);
       String path = ZNodePaths.joinZNode(znodePaths.baseZNode, metaReplicaZNode);
       if (replicaId == DEFAULT_REPLICA_ID) {
+        /**
+         *
+         */
         addListener(getAndConvert(path, ZKAsyncRegistry::getMetaProto), (proto, error) -> {
           if (error != null) {
             future.completeExceptionally(error);
@@ -193,17 +196,31 @@ class ZKAsyncRegistry implements AsyncRegistry {
   @Override
   public CompletableFuture<RegionLocations> getMetaRegionLocation() {
     CompletableFuture<RegionLocations> future = new CompletableFuture<>();
+
     addListener(
+            /**
+             * znodePaths.baseZNode   就是 /hbase
+             * zk.list(znodePaths.baseZNode)  获取/hbase这个节点的所有子节点
+             */
       zk.list(znodePaths.baseZNode)
         .thenApply(children -> children.stream()
+                /**
+                 * 过滤，找出meta元数据信息：
+                 * znodePaths.metaZNodePrefix  = meta-region-server
+                 *
+                 */
           .filter(c -> c.startsWith(znodePaths.metaZNodePrefix)).collect(Collectors.toList())),
       (metaReplicaZNodes, error) -> {
         if (error != null) {
           future.completeExceptionally(error);
           return;
         }
+        /**
+         *
+         */
         getMetaRegionLocation(future, metaReplicaZNodes);
       });
+
     return future;
   }
 

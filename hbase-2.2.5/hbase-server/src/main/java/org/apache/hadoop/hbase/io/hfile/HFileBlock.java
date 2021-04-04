@@ -992,8 +992,14 @@ public class HFileBlock implements Cacheable {
     void write(Cell cell) throws IOException{
       expectState(State.WRITING);
       int posBeforeEncode = this.userDataStream.size();
+
+      /**
+       * dataBlockEncoder = NoOpDataBlockEncoder
+       * 将cell对象编码 =>  010110
+       */
       this.unencodedDataSizeWritten +=
           this.dataBlockEncoder.encode(cell, dataBlockEncodingCtx, this.userDataStream);
+
       this.encodedDataSizeWritten += this.userDataStream.size() - posBeforeEncode;
     }
 

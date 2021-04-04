@@ -114,6 +114,7 @@ public abstract class AbstractMemStore implements MemStore {
 
   @Override
   public void add(Cell cell, MemStoreSizing memstoreSizing) {
+
     doAddOrUpsert(cell, 0, memstoreSizing, true);  }
 
   /*
@@ -144,6 +145,7 @@ public abstract class AbstractMemStore implements MemStore {
       succ = preUpdate(currentActive, cell, memstoreSizing);
       if (succ) {
         if(doAdd) {
+
           doAdd(currentActive, cell, memstoreSizing);
         } else {
           doUpsert(currentActive, cell, readpoint, memstoreSizing);
@@ -346,7 +348,9 @@ public abstract class AbstractMemStore implements MemStore {
   private void internalAdd(MutableSegment currentActive, final Cell toAdd, final boolean
       mslabUsed, MemStoreSizing memstoreSizing) {
     boolean sizeAddedPreOperation = sizeAddedPreOperation();
+
     currentActive.add(toAdd, mslabUsed, memstoreSizing, sizeAddedPreOperation);
+
     setOldestEditTimeToNow();
   }
 

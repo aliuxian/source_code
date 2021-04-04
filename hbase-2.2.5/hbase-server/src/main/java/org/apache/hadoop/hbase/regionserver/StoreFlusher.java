@@ -130,6 +130,10 @@ abstract class StoreFlusher {
             // If we know that this KV is going to be included always, then let us
             // set its memstoreTS to 0. This will help us save space when writing to
             // disk.
+            /**
+             * sink 就是刚刚创建的StoreFileWriter
+             * 每次写出一个cell
+             */
             sink.append(c);
             if (control) {
               throughputController.control(flushName, c.getSerializedSize());

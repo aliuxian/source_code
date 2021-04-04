@@ -295,8 +295,15 @@ public class StoreFileWriter implements CellSink, ShipperListener {
 
   @Override
   public void append(final Cell cell) throws IOException {
+
+    /**
+     * 每一次溢写一个HFile，都需要为其构建一个bloomFilter
+     */
     appendGeneralBloomfilter(cell);
     appendDeleteFamilyBloomFilter(cell);
+    /**
+     * 将cell写到文件
+     */
     writer.append(cell);
     trackTimestamps(cell);
   }

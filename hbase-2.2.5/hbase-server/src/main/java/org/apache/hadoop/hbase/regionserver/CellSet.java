@@ -167,6 +167,9 @@ public class CellSet implements NavigableSet<Cell>  {
 
   @Override
   public boolean add(Cell e) {
+    /**
+     * delegatee 是一个 ConcurrentSkipListMap
+     */
     return this.delegatee.put(e, e) == null;
   }
 

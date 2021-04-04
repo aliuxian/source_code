@@ -3527,6 +3527,9 @@ public class HRegionServer extends HasThread implements
 
   protected HRegion getRegionByEncodedName(byte[] regionName, String encodedRegionName)
     throws NotServingRegionException {
+    /**
+     *
+     */
     HRegion region = this.onlineRegions.get(encodedRegionName);
     if (region == null) {
       MovedRegionInfo moveInfo = getMovedRegion(encodedRegionName);
