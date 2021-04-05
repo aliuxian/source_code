@@ -723,8 +723,15 @@ class NameNodeRpcServer implements NamenodeProtocols {
     }
     List<String> favoredNodesList = (favoredNodes == null) ? null
         : Arrays.asList(favoredNodes);
+
+      /***
+       * 1、选择三台DataNode
+       * 2、修改目录树（内存
+       * 3、存储元数据信息（磁盘
+       */
     LocatedBlock locatedBlock = namesystem.getAdditionalBlock(src, fileId,
         clientName, previous, excludedNodesSet, favoredNodesList);
+
     if (locatedBlock != null)
       metrics.incrAddBlockOps();
     return locatedBlock;

@@ -47,6 +47,10 @@ public class FSDataOutputStream extends DataOutputStream
     }
 
     public void write(int b) throws IOException {
+      /**
+       * out 就是 DFSOutputStream  create方法返回的
+       * DFSOutputStream 内部没有实现write方法，在其父类（FSOutputSummer）中实现了
+       */
       out.write(b);
       position++;
       if (statistics != null) {

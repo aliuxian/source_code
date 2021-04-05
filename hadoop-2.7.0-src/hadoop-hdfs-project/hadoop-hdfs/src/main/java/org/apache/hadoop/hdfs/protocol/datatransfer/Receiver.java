@@ -71,6 +71,9 @@ public abstract class Receiver implements DataTransferProtocol {
       opReadBlock();
       break;
     case WRITE_BLOCK:
+      /**
+       *
+       */
       opWriteBlock(in);
       break;
     case REPLACE_BLOCK:
@@ -134,6 +137,9 @@ public abstract class Receiver implements DataTransferProtocol {
     TraceScope traceScope = continueTraceSpan(proto.getHeader(),
         proto.getClass().getSimpleName());
     try {
+      /**
+       *
+       */
       writeBlock(PBHelper.convert(proto.getHeader().getBaseHeader().getBlock()),
           PBHelper.convertStorageType(proto.getStorageType()),
           PBHelper.convert(proto.getHeader().getBaseHeader().getToken()),

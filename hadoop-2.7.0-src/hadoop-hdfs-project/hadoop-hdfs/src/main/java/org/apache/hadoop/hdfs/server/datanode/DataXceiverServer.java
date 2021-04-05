@@ -132,6 +132,9 @@ class DataXceiverServer implements Runnable {
     Peer peer = null;
     while (datanode.shouldRun && !datanode.shutdownForUpgrade) {
       try {
+        /**
+         *
+         */
         peer = peerServer.accept();
 
         // Make sure the xceiver count is not exceeded
@@ -142,9 +145,13 @@ class DataXceiverServer implements Runnable {
               + maxXceiverCount);
         }
 
+        /**
+         *  DataXceiver.run()
+         */
         new Daemon(datanode.threadGroup,
             DataXceiver.create(peer, datanode, this))
             .start();
+
       } catch (SocketTimeoutException ignored) {
         // wake up to see if should continue to run
       } catch (AsynchronousCloseException ace) {

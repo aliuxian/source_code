@@ -73,10 +73,14 @@ abstract public class FSOutputSummer extends OutputStream {
   /** Write one byte */
   @Override
   public synchronized void write(int b) throws IOException {
+
     buf[count++] = (byte)b;
     if(count == buf.length) {
+
+
       flushBuffer();
     }
+
   }
 
   /**
@@ -160,6 +164,9 @@ abstract public class FSOutputSummer extends OutputStream {
     int partialLen = bufLen % sum.getBytesPerChecksum();
     int lenToFlush = flushPartial ? bufLen : bufLen - partialLen;
     if (lenToFlush != 0) {
+      /**
+       * 目录 => 文件  => block  =>  packet（64k） =>  127个chunk（512byte数据 + 4byte校验码）
+       */
       writeChecksumChunks(buf, 0, lenToFlush);
       if (!flushPartial || keep) {
         count = partialLen;
@@ -199,10 +206,15 @@ abstract public class FSOutputSummer extends OutputStream {
    */
   private void writeChecksumChunks(byte b[], int off, int len)
   throws IOException {
+    // 计算chunk的校验和
     sum.calculateChunkedSums(b, off, len, checksum, 0);
-    for (int i = 0; i < len; i += sum.getBytesPerChecksum()) {
+
+
+    for (int i = 0; i < len; i += sum.getBytesPerChecksum()) {  // 跨度 一个chunk的大小
+
       int chunkLen = Math.min(sum.getBytesPerChecksum(), len - i);
       int ckOffset = i / sum.getBytesPerChecksum() * getChecksumSize();
+      // 一个一个chunk的写出数据
       writeChunk(b, off + i, chunkLen, checksum, ckOffset, getChecksumSize());
     }
   }

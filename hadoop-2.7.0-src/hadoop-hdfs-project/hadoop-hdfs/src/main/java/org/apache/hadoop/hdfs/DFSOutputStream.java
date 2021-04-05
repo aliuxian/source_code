@@ -383,9 +383,12 @@ public class DFSOutputStream extends FSOutputSummer
       long lastPacket = Time.monotonicNow();
       TraceScope scope = NullScope.INSTANCE;
       while (!streamerClosed && dfsClient.clientRunning) {
+
+
         // if the Responder encountered an error, shutdown Responder
         if (hasError && response != null) {
           try {
+            // 关闭对象
             response.close();
             response.join();
             response = null;
@@ -398,7 +401,11 @@ public class DFSOutputStream extends FSOutputSummer
         try {
           // process datanode IO errors if any
           boolean doSleep = false;
+
           if (hasError && (errorIndex >= 0 || restartingNodeIndex.get() >= 0)) {
+            /**
+             * 关闭各种流
+             */
             doSleep = processDatanodeError();
           }
 
@@ -439,6 +446,9 @@ public class DFSOutputStream extends FSOutputSummer
               one = createHeartbeatPacket();
               assert one != null;
             } else {
+              /**
+               * 取出packet
+               */
               one = dataQueue.getFirst(); // regular data packet
               long parents[] = one.getTraceParents();
               if (parents.length > 0) {
@@ -455,7 +465,16 @@ public class DFSOutputStream extends FSOutputSummer
             if(DFSClient.LOG.isDebugEnabled()) {
               DFSClient.LOG.debug("Allocating new block");
             }
+            /**
+             * nextBlockOutputStream()
+             *      1.向NameNode申请Block
+             *      2.建立数据管道
+             */
             setPipeline(nextBlockOutputStream());
+
+            /**
+             * 启动ResponseProcessor，用来监听一个packet是否发送成功了
+             */
             initDataStreaming();
           } else if (stage == BlockConstructionStage.PIPELINE_SETUP_APPEND) {
             if(DFSClient.LOG.isDebugEnabled()) {
@@ -492,7 +511,10 @@ public class DFSOutputStream extends FSOutputSummer
             }
             stage = BlockConstructionStage.PIPELINE_CLOSE;
           }
-          
+
+          /**
+           * 将packet从dataQueue移到ackQueue中，如果写成功就会将ackQueue中的packet删除，失败就会将ackQueue中的packet重新移到dataQueue中
+           */
           // send the packet
           Span span = null;
           synchronized (dataQueue) {
@@ -511,11 +533,18 @@ public class DFSOutputStream extends FSOutputSummer
                 " sending packet " + one);
           }
 
+          /**
+           * 发送数据
+           */
           // write out data to remote datanode
           TraceScope writeScope = Trace.startSpan("writeTo", span);
           try {
+            /**
+             *
+             */
             one.writeTo(blockStream);
-            blockStream.flush();   
+            blockStream.flush();
+
           } catch (IOException e) {
             // HDFS-3398 treat primary DN is down since client is unable to 
             // write to primary DN. If a failed or restarting node has already
@@ -523,6 +552,11 @@ public class DFSOutputStream extends FSOutputSummer
             // effect. Pipeline recovery can handle only one node error at a
             // time. If the primary node fails again during the recovery, it
             // will be taken out then.
+
+            /**
+             * 抛异常：
+             * client写数据到第一个节点失败了
+             */
             tryMarkPrimaryDatanodeFailed();
             throw e;
           } finally {
@@ -571,6 +605,7 @@ public class DFSOutputStream extends FSOutputSummer
           } else {
             setLastException(new IOException("DataStreamer Exception: ",e));
           }
+          // 将 hasError复制为true
           hasError = true;
           if (errorIndex == -1 && restartingNodeIndex.get() == -1) {
             // Not a datanode issue
@@ -740,7 +775,11 @@ public class DFSOutputStream extends FSOutputSummer
           try {
             // read an ack from the pipeline
             long begin = Time.monotonicNow();
+            /**
+             * 读取下游的结果
+             */
             ack.readFields(blockReplyStream);
+
             long duration = Time.monotonicNow() - begin;
             if (duration > dfsclientSlowLogThresholdMs
                 && ack.getSeqno() != DFSPacket.HEART_BEAT_SEQNO) {
@@ -808,6 +847,9 @@ public class DFSOutputStream extends FSOutputSummer
             // update bytesAcked
             block.setNumBytes(one.getLastByteOffsetBlock());
 
+            /**
+             * packet发送成功了，就将ackQueue中的第一个packet移除
+             */
             synchronized (dataQueue) {
               scope = Trace.continueSpan(one.getTraceSpan());
               one.setTraceSpan(null);
@@ -861,6 +903,9 @@ public class DFSOutputStream extends FSOutputSummer
 
       // move packets from ack queue to front of the data queue
       synchronized (dataQueue) {
+        /**
+         * 将数据移到dataQueue中
+         */
         dataQueue.addAll(0, ackQueue);
         ackQueue.clear();
       }
@@ -882,6 +927,7 @@ public class DFSOutputStream extends FSOutputSummer
           return false;
         }
       }
+      // 重新建立连接
       boolean doSleep = setupPipelineForAppendOrRecovery();
       
       if (!streamerClosed && dfsClient.clientRunning) {
@@ -1098,8 +1144,14 @@ public class DFSOutputStream extends FSOutputSummer
           DFSClient.LOG.warn("Error Recovery for block " + block +
               " in pipeline " + pipelineMsg + 
               ": bad datanode " + nodes[errorIndex]);
+          /**
+           * 将出错误的datanode加入到failed列表中
+           */
           failed.add(nodes[errorIndex]);
 
+          /**
+           * 将好的datanode放到newnodes
+           */
           DatanodeInfo[] newnodes = new DatanodeInfo[nodes.length-1];
           arraycopy(nodes, newnodes, errorIndex);
 
@@ -1133,10 +1185,17 @@ public class DFSOutputStream extends FSOutputSummer
           errorIndex = -1;
         }
 
+        /**
+         * 假如是三副本，如果有两个或者两个以上出问题，就走这个if分支，
+         * 出问题的节点数大于副本数/2
+         */
         // Check if replace-datanode policy is satisfied.
         if (dfsClient.dtpReplaceDatanodeOnFailure.satisfy(blockReplication,
             nodes, isAppend, isHflushed)) {
           try {
+            /**
+             * 重新申请节点，重试建立管道
+             */
             addDatanode2ExistingPipeline();
           } catch(IOException ioe) {
             if (!dfsClient.dtpReplaceDatanodeOnFailure.isBestEffort()) {
@@ -1156,6 +1215,12 @@ public class DFSOutputStream extends FSOutputSummer
         
         // set up the pipeline again with the remaining nodes
         if (failPacket) { // for testing
+          /**
+           * 用剩余的节点，建立新的管道。
+           * 这个时候副本数就不够了，后面心跳的时候会再平衡。
+           * datanode  向 namenode 汇报的时候  =>  再平衡
+           *
+           */
           success = createBlockOutputStream(nodes, storageTypes, newGS, isRecovery);
           failPacket = false;
           try {
@@ -1218,6 +1283,9 @@ public class DFSOutputStream extends FSOutputSummer
       LocatedBlock lb = null;
       DatanodeInfo[] nodes = null;
       StorageType[] storageTypes = null;
+      /**
+       * count重试次数
+       */
       int count = dfsClient.getConf().nBlockWriteRetry;
       boolean success = false;
       ExtendedBlock oldBlock = block;
@@ -1232,6 +1300,10 @@ public class DFSOutputStream extends FSOutputSummer
             .keySet()
             .toArray(new DatanodeInfo[0]);
         block = oldBlock;
+
+        /**
+         * 申请block，并且将有问题的node节点集合传给namenode，让namenode不要再给自己分配这些node了
+         */
         lb = locateFollowingBlock(excluded.length > 0 ? excluded : null);
         block = lb.getBlock();
         block.setNumBytes(0);
@@ -1242,17 +1314,30 @@ public class DFSOutputStream extends FSOutputSummer
 
         //
         // Connect to first DataNode in the list.
+        /**
+         * 创建数据管道
+         */
         //
         success = createBlockOutputStream(nodes, storageTypes, 0L, false);
 
         if (!success) {
+          /**
+           * 建立数据管道失败了
+           * 放弃block
+           */
           DFSClient.LOG.info("Abandoning " + block);
           dfsClient.namenode.abandonBlock(block, fileId, src,
               dfsClient.clientName);
           block = null;
           DFSClient.LOG.info("Excluding datanode " + nodes[errorIndex]);
+          /**
+           * 将有问题的datanode加入excludedNodes中
+           */
           excludedNodes.put(nodes[errorIndex], nodes[errorIndex]);
         }
+        /**
+         * 重新申请
+         */
       } while (!success && --count >= 0);
 
       if (!success) {
@@ -1290,15 +1375,27 @@ public class DFSOutputStream extends FSOutputSummer
         try {
           assert null == s : "Previous socket unclosed";
           assert null == blockReplyStream : "Previous blockReplyStream unclosed";
+          /**
+           * 创建一个socket
+           */
           s = createSocketForPipeline(nodes[0], nodes.length, dfsClient);
           long writeTimeout = dfsClient.getDatanodeWriteTimeout(nodes.length);
-          
+
+          // 输出流   写数据到datanode
           OutputStream unbufOut = NetUtils.getOutputStream(s, writeTimeout);
+          // 输入流   获取响应
           InputStream unbufIn = NetUtils.getInputStream(s);
+
+
           IOStreamPair saslStreams = dfsClient.saslClient.socketSend(s,
             unbufOut, unbufIn, dfsClient, accessToken, nodes[0]);
+
           unbufOut = saslStreams.out;
           unbufIn = saslStreams.in;
+
+          /**
+           * 客户端将数据写到dataNode
+           */
           out = new DataOutputStream(new BufferedOutputStream(unbufOut,
               HdfsConstants.SMALL_BUFFER_SIZE));
           blockReplyStream = new DataInputStream(unbufIn);
@@ -1316,6 +1413,11 @@ public class DFSOutputStream extends FSOutputSummer
 
           boolean[] targetPinnings = getPinnings(nodes, true);
           // send the request
+          /**
+           * 将数据写出去
+           * DataNode启动的时候的初始化了DataXceiverServer服务
+           * 空的block，==>  打通pipeline
+           */
           new Sender(out).writeBlock(blockCopy, nodeStorageTypes[0], accessToken,
               dfsClient.clientName, nodes, nodeStorageTypes, null, bcs, 
               nodes.length, block.getNumBytes(), bytesSent, newGS,
@@ -1436,6 +1538,9 @@ public class DFSOutputStream extends FSOutputSummer
         long localstart = Time.monotonicNow();
         while (true) {
           try {
+            /**
+             *
+             */
             return dfsClient.namenode.addBlock(src, dfsClient.clientName,
                 block, excludedNodes, fileId, favoredNodes);
           } catch (RemoteException e) {
@@ -1752,12 +1857,18 @@ public class DFSOutputStream extends FSOutputSummer
     synchronized (dataQueue) {
       if (currentPacket == null) return;
       currentPacket.addTraceParent(Trace.currentSpan());
+      /**
+       * 将packet入队
+       */
       dataQueue.addLast(currentPacket);
       lastQueuedSeqno = currentPacket.getSeqno();
       if (DFSClient.LOG.isDebugEnabled()) {
         DFSClient.LOG.debug("Queued packet " + currentPacket.getSeqno());
       }
       currentPacket = null;
+      /**
+       * 唤醒DataStreamer
+       */
       dataQueue.notifyAll();
     }
   }
@@ -1768,6 +1879,10 @@ public class DFSOutputStream extends FSOutputSummer
       // If queue is full, then wait till we have enough space
         boolean firstWait = true;
         try {
+          /**
+           * dataQueue + ackQueue两个队列中的packet数量以及超过了最大packet数量限制
+           * 将dataQueue阻塞
+           */
           while (!isClosed() && dataQueue.size() + ackQueue.size() >
               dfsClient.getConf().writeMaxPackets) {
             if (firstWait) {
@@ -1798,6 +1913,9 @@ public class DFSOutputStream extends FSOutputSummer
           }
         }
         checkClosed();
+        /**
+         * 继续往dataQueue写数据
+         */
         queueCurrentPacket();
       } catch (ClosedChannelException e) {
       }
@@ -1811,6 +1929,9 @@ public class DFSOutputStream extends FSOutputSummer
     TraceScope scope =
         dfsClient.getPathTraceScope("DFSOutputStream#writeChunk", src);
     try {
+      /**
+       *
+       */
       writeChunkImpl(b, offset, len, checksum, ckoff, cklen);
     } finally {
       scope.close();
@@ -1833,8 +1954,12 @@ public class DFSOutputStream extends FSOutputSummer
     }
 
     if (currentPacket == null) {
+      /**
+       * 创建 packet
+       */
       currentPacket = createPacket(packetSize, chunksPerPacket, 
           bytesCurBlock, currentSeqno++, false);
+
       if (DFSClient.LOG.isDebugEnabled()) {
         DFSClient.LOG.debug("DFSClient writeChunk allocating new packet seqno=" + 
             currentPacket.getSeqno() +
@@ -1845,13 +1970,18 @@ public class DFSOutputStream extends FSOutputSummer
       }
     }
 
+    // 写入chunk校验和
     currentPacket.writeChecksum(checksum, ckoff, cklen);
+    // 写入数据
     currentPacket.writeData(b, offset, len);
+    // 计数，该packet中chunk的数量
     currentPacket.incNumChunks();
+
+    // 当前block的数据大小，达到128M就写满了一个block
     bytesCurBlock += len;
 
     // If packet is full, enqueue it for transmission
-    //
+    // packet中写满了127的chunk || block写满了
     if (currentPacket.getNumChunks() == currentPacket.getMaxChunks() ||
         bytesCurBlock == blockSize) {
       if (DFSClient.LOG.isDebugEnabled()) {
@@ -1862,6 +1992,9 @@ public class DFSOutputStream extends FSOutputSummer
             ", blockSize=" + blockSize +
             ", appendChunk=" + appendChunk);
       }
+      /**
+       *
+       */
       waitAndQueueCurrentPacket();
 
       // If the reopened file did not end at chunk boundary and the above

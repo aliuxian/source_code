@@ -119,6 +119,9 @@ class DataXceiver extends Receiver implements Runnable {
   
   public static DataXceiver create(Peer peer, DataNode dn,
       DataXceiverServer dataXceiverServer) throws IOException {
+    /**
+     *
+     */
     return new DataXceiver(peer, dn, dataXceiverServer);
   }
   
@@ -224,6 +227,9 @@ class DataXceiver extends Receiver implements Runnable {
           } else {
             peer.setReadTimeout(dnConf.socketTimeout);
           }
+          /**
+           * 获取操作类型
+           */
           op = readOp();
         } catch (InterruptedIOException ignored) {
           // Time out while we wait for client rpc
@@ -248,6 +254,9 @@ class DataXceiver extends Receiver implements Runnable {
         }
 
         opStartTime = monotonicNow();
+        /**
+         *
+         */
         processOp(op);
         ++opsProcessed;
       } while ((peer != null) &&
@@ -664,6 +673,11 @@ class DataXceiver extends Receiver implements Runnable {
       if (isDatanode || 
           stage != BlockConstructionStage.PIPELINE_CLOSE_RECOVERY) {
         // open a block receiver
+        /**
+         * 看构造函数
+         *
+         * 用来接收block
+         */
         blockReceiver = new BlockReceiver(block, storageType, in,
             peer.getRemoteAddressString(),
             peer.getLocalAddressString(),
@@ -679,7 +693,10 @@ class DataXceiver extends Receiver implements Runnable {
 
       //
       // Connect to downstream machine, if appropriate
-      //
+
+      /**
+       * 与下游dataNode建立连接
+       */
       if (targets.length > 0) {
         InetSocketAddress mirrorTarget = null;
         // Connect to backup machine
@@ -688,6 +705,9 @@ class DataXceiver extends Receiver implements Runnable {
           LOG.debug("Connecting to datanode " + mirrorNode);
         }
         mirrorTarget = NetUtils.createSocketAddr(mirrorNode);
+        /**
+         * 创建socket
+         */
         mirrorSock = datanode.newSocket();
         try {
           int timeoutValue = dnConf.socketTimeout
@@ -701,18 +721,29 @@ class DataXceiver extends Receiver implements Runnable {
           OutputStream unbufMirrorOut = NetUtils.getOutputStream(mirrorSock,
               writeTimeout);
           InputStream unbufMirrorIn = NetUtils.getInputStream(mirrorSock);
+
           DataEncryptionKeyFactory keyFactory =
             datanode.getDataEncryptionKeyFactoryForBlock(block);
           IOStreamPair saslStreams = datanode.saslClient.socketSend(mirrorSock,
             unbufMirrorOut, unbufMirrorIn, keyFactory, blockToken, targets[0]);
           unbufMirrorOut = saslStreams.out;
           unbufMirrorIn = saslStreams.in;
+
+          /**
+           * 输出流
+           */
           mirrorOut = new DataOutputStream(new BufferedOutputStream(unbufMirrorOut,
               HdfsConstants.SMALL_BUFFER_SIZE));
+          /**
+           * 输入流
+           */
           mirrorIn = new DataInputStream(unbufMirrorIn);
 
           // Do not propagate allowLazyPersist to downstream DataNodes.
           if (targetPinnings != null && targetPinnings.length > 0) {
+            /**
+             * 到这就开始重复了，
+             */
             new Sender(mirrorOut).writeBlock(originalBlock, targetStorageTypes[0],
               blockToken, clientname, targets, targetStorageTypes, srcDataNode,
               stage, pipelineSize, minBytesRcvd, maxBytesRcvd,
@@ -773,6 +804,7 @@ class DataXceiver extends Receiver implements Runnable {
         }
       }
 
+
       // send connect-ack to source for clients and not transfer-RBW/Finalized
       if (isClient && !isTransfer) {
         if (LOG.isDebugEnabled() || mirrorInStatus != SUCCESS) {
@@ -791,6 +823,9 @@ class DataXceiver extends Receiver implements Runnable {
       // receive the block and mirror to the next target
       if (blockReceiver != null) {
         String mirrorAddr = (mirrorSock == null) ? null : mirrorNode;
+        /**
+         * 接收到packet
+         */
         blockReceiver.receiveBlock(mirrorOut, mirrorIn, replyOut,
             mirrorAddr, null, targets, false);
 

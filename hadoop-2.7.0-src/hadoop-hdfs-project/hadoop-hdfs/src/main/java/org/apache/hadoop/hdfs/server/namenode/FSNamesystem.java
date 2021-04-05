@@ -3097,6 +3097,10 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       clientNode = getClientNode(clientMachine);
     }
 
+    /**
+     * 选择存放block的dataNode
+     * HDFS机架感知
+     */
     // choose targets for the new block to be allocated.
     final DatanodeStorageInfo targets[] = getBlockManager().chooseTarget4NewBlock( 
         src, replication, clientNode, excludedNodes, blockSize, favoredNodes,
@@ -3137,12 +3141,17 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       commitOrCompleteLastBlock(pendingFile, fileState.iip,
                                 ExtendedBlock.getLocalBlock(previous));
 
+      /***
+       * 创建Block
+       */
       // allocate new block, record block locations in INode.
       newBlock = createNewBlock();
       INodesInPath inodesInPath = INodesInPath.fromINode(pendingFile);
+      // 修改内存中的目录树
       saveAllocatedBlock(src, inodesInPath, newBlock, targets);
-
+      // 把元数据写到磁盘
       persistNewBlock(src, pendingFile);
+
       offset = pendingFile.computeFileSize();
     } finally {
       writeUnlock();
@@ -3562,6 +3571,9 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       Block newBlock, DatanodeStorageInfo[] targets)
           throws IOException {
     assert hasWriteLock();
+    /**
+     *
+     */
     BlockInfoContiguous b = dir.addBlock(src, inodesInPath, newBlock, targets);
     NameNode.stateChangeLog.info("BLOCK* allocate " + b + " for " + src);
     DatanodeStorageInfo.incrementBlocksScheduled(targets);
@@ -5072,6 +5084,9 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    */
   private void persistNewBlock(String path, INodeFile file) {
     Preconditions.checkArgument(file.isUnderConstruction());
+    /**
+     * 写入EditLog
+     */
     getEditLog().logAddBlock(path, file);
     if (NameNode.stateChangeLog.isDebugEnabled()) {
       NameNode.stateChangeLog.debug("persistNewBlock: "

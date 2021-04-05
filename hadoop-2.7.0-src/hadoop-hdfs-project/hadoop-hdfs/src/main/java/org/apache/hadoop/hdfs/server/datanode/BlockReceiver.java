@@ -466,6 +466,10 @@ class BlockReceiver implements Closeable {
   /** 
    * Receives and processes a packet. It can contain many chunks.
    * returns the number of data bytes that the packet has.
+   *
+   * 先加入ackQueue
+   * 在发给下游节点
+   * 最后写到自己的disk
    */
   private int receivePacket() throws IOException {
     // read the next packet
@@ -510,6 +514,9 @@ class BlockReceiver implements Closeable {
     
     // put in queue for pending acks, unless sync was requested
     if (responder != null && !syncBlock && !shouldVerifyChecksum()) {
+      /**
+       * 将接收到的数据写到ackQueue中
+       */
       ((PacketResponder) responder.getRunnable()).enqueue(seqno,
           lastPacketInBlock, offsetInBlock, Status.SUCCESS);
     }
@@ -518,6 +525,9 @@ class BlockReceiver implements Closeable {
     if (mirrorOut != null && !mirrorError) {
       try {
         long begin = Time.monotonicNow();
+        /**
+         * 将数据写到下游
+         */
         packetReceiver.mirrorPacketTo(mirrorOut);
         mirrorOut.flush();
         long duration = Time.monotonicNow() - begin;
@@ -615,6 +625,9 @@ class BlockReceiver implements Closeable {
           
           // Write data to disk.
           long begin = Time.monotonicNow();
+          /**
+           * 将数据写到disk
+           */
           out.write(dataBuf.array(), startByteToDisk, numBytesToDisk);
           long duration = Time.monotonicNow() - begin;
           if (duration > datanodeSlowLogThresholdMs) {
@@ -779,11 +792,17 @@ class BlockReceiver implements Closeable {
 
     try {
       if (isClient && !isTransfer) {
+        /**
+         * PacketResponder 接收下游的ack响应
+         */
         responder = new Daemon(datanode.threadGroup, 
             new PacketResponder(replyOut, mirrIn, downstreams));
         responder.start(); // start thread to processes responses
       }
 
+      /**
+       * 不停的接收数据
+       */
       while (receivePacket() >= 0) { /* Receive until the last packet */ }
 
       // wait for all outstanding packet responses. And then
@@ -1170,8 +1189,12 @@ class BlockReceiver implements Closeable {
           long seqno = PipelineAck.UNKOWN_SEQNO;
           long ackRecvNanoTime = 0;
           try {
+            // 如果不是pipeline中的最后一个节点
             if (type != PacketResponderType.LAST_IN_PIPELINE && !mirrorError) {
               // read an ack from downstream datanode
+              /***
+               *
+               */
               ack.readFields(downstreamIn);
               ackRecvNanoTime = System.nanoTime();
               if (LOG.isDebugEnabled()) {
@@ -1263,6 +1286,9 @@ class BlockReceiver implements Closeable {
             PipelineAck.combineHeader(datanode.getECN(), myStatus));
           if (pkt != null) {
             // remove the packet from the ack queue
+            /**
+             * 移除写成功的packet
+             */
             removeAckHead();
           }
         } catch (IOException e) {
