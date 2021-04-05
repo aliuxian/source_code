@@ -152,8 +152,14 @@ public class LeaseManager {
    * Adds (or re-adds) the lease for the specified file.
    */
   synchronized Lease addLease(String holder, String src) {
+    /**
+     * 先查看该node的契约是否已经存在
+     */
     Lease lease = getLease(holder);
     if (lease == null) {
+      /**
+       * 创建一个新的契约
+       */
       lease = new Lease(holder);
       leases.put(holder, lease);
       sortedLeases.add(lease);
@@ -218,12 +224,27 @@ public class LeaseManager {
    * Renew the lease(s) held by the given client
    */
   synchronized void renewLease(String holder) {
+    /**
+     *
+     */
     renewLease(getLease(holder));
   }
   synchronized void renewLease(Lease lease) {
+    /**
+     *
+     */
     if (lease != null) {
+      /**
+       * 移除老的
+       */
       sortedLeases.remove(lease);
+      /**
+       * 续约，本质就是修改一下时间
+       */
       lease.renew();
+      /**
+       * 添加到契约集合，按照时间排序
+       */
       sortedLeases.add(lease);
     }
   }
@@ -414,6 +435,9 @@ public class LeaseManager {
           fsnamesystem.writeLockInterruptibly();
           try {
             if (!fsnamesystem.isInSafeMode()) {
+              /**
+               * 检查契约
+               */
               needSync = checkLeases();
             }
           } finally {
@@ -462,10 +486,18 @@ public class LeaseManager {
     assert fsnamesystem.hasWriteLock();
     Lease leaseToCheck = null;
     try {
+      /**
+       * 从存放契约的map中取出第一个契约，map是按时间升序排序的，所以第一个就是距离现在最远的那个契约。
+       */
       leaseToCheck = sortedLeases.first();
+
     } catch(NoSuchElementException e) {}
 
     while(leaseToCheck != null) {
+      /**
+       * 最老的那个契约是否过去了
+       * 如果没有过期，就break了，不会往下执行了，因为最老的都还没过期，其他的肯定也不会过期
+       */
       if (!leaseToCheck.expiredHardLimit()) {
         break;
       }
@@ -503,9 +535,16 @@ public class LeaseManager {
         }
       }
 
+      /**
+       * 移除过期的契约
+       */
       for(String p : removing) {
         removeLease(leaseToCheck, p);
       }
+      /**
+       * 拿出第二个契约，继续判断
+       * 第三个、第四个...
+       */
       leaseToCheck = sortedLeases.higher(leaseToCheck);
     }
 

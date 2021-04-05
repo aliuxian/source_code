@@ -773,6 +773,9 @@ public abstract class FileSystem extends Configured implements Closeable {
    * @param f the file to create
    */
   public FSDataOutputStream create(Path f) throws IOException {
+    /**
+     *
+     */
     return create(f, true);
   }
 
@@ -784,6 +787,9 @@ public abstract class FileSystem extends Configured implements Closeable {
    */
   public FSDataOutputStream create(Path f, boolean overwrite)
       throws IOException {
+    /**
+     *
+     */
     return create(f, overwrite, 
                   getConf().getInt("io.file.buffer.size", 4096),
                   getDefaultReplication(f),

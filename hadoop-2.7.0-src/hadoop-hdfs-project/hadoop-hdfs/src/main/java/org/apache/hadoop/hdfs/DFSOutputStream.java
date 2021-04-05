@@ -405,16 +405,25 @@ public class DFSOutputStream extends FSOutputSummer
           synchronized (dataQueue) {
             // wait for a packet to be sent.
             long now = Time.monotonicNow();
-            while ((!streamerClosed && !hasError && dfsClient.clientRunning 
-                && dataQueue.size() == 0 && 
-                (stage != BlockConstructionStage.DATA_STREAMING || 
-                 stage == BlockConstructionStage.DATA_STREAMING && 
-                 now - lastPacket < dfsClient.getConf().socketTimeout/2)) || doSleep ) {
+            while ((!streamerClosed
+                    && !hasError
+                    && dfsClient.clientRunning
+                    && dataQueue.size() == 0
+                    &&
+                        (stage != BlockConstructionStage.DATA_STREAMING ||
+                          stage == BlockConstructionStage.DATA_STREAMING &&
+                          now - lastPacket < dfsClient.getConf().socketTimeout/2)
+                  ) || doSleep ) {
               long timeout = dfsClient.getConf().socketTimeout/2 - (now-lastPacket);
               timeout = timeout <= 0 ? 1000 : timeout;
               timeout = (stage == BlockConstructionStage.DATA_STREAMING)?
                  timeout : 1000;
               try {
+                /***
+                 * 如果dataQueue里面没有数据，代码就会阻塞在这
+                 *
+                 * 时间到了 or 被其他线程唤醒
+                 */
                 dataQueue.wait(timeout);
               } catch (InterruptedException  e) {
                 DFSClient.LOG.warn("Caught exception ", e);
@@ -1598,7 +1607,11 @@ public class DFSOutputStream extends FSOutputSummer
 
     computePacketChunkSize(dfsClient.getConf().writePacketSize, bytesPerChecksum);
 
+    /**
+     *
+     */
     streamer = new DataStreamer(stat, null);
+
     if (favoredNodes != null && favoredNodes.length != 0) {
       streamer.setFavoredNodes(favoredNodes);
     }
@@ -1620,6 +1633,13 @@ public class DFSOutputStream extends FSOutputSummer
       while (shouldRetry) {
         shouldRetry = false;
         try {
+          /**
+           * 创建目录：在目录树上面添加一个子Node（INodeDirectory）
+           *
+           * 上传文件
+           *       创建文件
+           *       添加契约
+           */
           stat = dfsClient.namenode.create(src, masked, dfsClient.clientName,
               new EnumSetWritable<CreateFlag>(flag), createParent, replication,
               blockSize, SUPPORTED_CRYPTO_VERSIONS);
@@ -1651,8 +1671,14 @@ public class DFSOutputStream extends FSOutputSummer
         }
       }
       Preconditions.checkNotNull(stat, "HdfsFileStatus should not be null!");
+      /**
+       *
+       */
       final DFSOutputStream out = new DFSOutputStream(dfsClient, src, stat,
           flag, progress, checksum, favoredNodes);
+      /**
+       * out是一个线程
+       */
       out.start();
       return out;
     } finally {

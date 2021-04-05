@@ -391,6 +391,9 @@ public class FSDirectory implements Closeable {
   private static INodeFile newINodeFile(long id, PermissionStatus permissions,
       long mtime, long atime, short replication, long preferredBlockSize,
       byte storagePolicyId) {
+    /***
+     *
+     */
     return new INodeFile(id, null, permissions, mtime, atime,
         BlockInfoContiguous.EMPTY_ARRAY, replication, preferredBlockSize,
         storagePolicyId);
@@ -407,14 +410,21 @@ public class FSDirectory implements Closeable {
       UnresolvedLinkException, SnapshotAccessControlException, AclException {
 
     long modTime = now();
+    /**
+     * 创建一个INodeFile对象
+     */
     INodeFile newNode = newINodeFile(allocateNewInodeId(), permissions, modTime,
         modTime, replication, preferredBlockSize);
+
     newNode.setLocalName(localName.getBytes(Charsets.UTF_8));
     newNode.toUnderConstruction(clientName, clientMachine);
 
     INodesInPath newiip;
     writeLock();
     try {
+      /***
+       *
+       */
       newiip = addINode(existing, newNode);
     } finally {
       writeUnlock();
@@ -977,6 +987,9 @@ public class FSDirectory implements Closeable {
     boolean isRename = (inode.getParent() != null);
     boolean added;
     try {
+      /**
+       *
+       */
       added = parent.addChild(inode, true, existing.getLatestSnapshotId());
     } catch (QuotaExceededException e) {
       updateCountNoQuotaCheck(existing, pos, counts.negation());

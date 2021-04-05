@@ -534,8 +534,14 @@ public class INodeDirectory extends INodeWithAdditionalFields
       if (sf == null) {
         sf = this.addSnapshotFeature(null);
       }
+      /***
+       *
+       */
       return sf.addChild(this, node, setModTime, latestSnapshotId);
     }
+    /**
+     *
+     */
     addChild(node, low);
     if (setModTime) {
       // update modification time of the parent directory
@@ -561,6 +567,9 @@ public class INodeDirectory extends INodeWithAdditionalFields
     if (children == null) {
       children = new ArrayList<INode>(DEFAULT_FILES_PER_DIRECTORY);
     }
+    /**
+     * 子节点列表中添加一个node
+     */
     node.setParent(this);
     children.add(-insertionPoint - 1, node);
 

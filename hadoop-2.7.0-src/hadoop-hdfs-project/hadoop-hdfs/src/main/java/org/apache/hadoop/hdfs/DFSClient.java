@@ -888,7 +888,13 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
   boolean renewLease() throws IOException {
     if (clientRunning && !isFilesBeingWrittenEmpty()) {
       try {
+        /**
+         * 续约操作
+         */
         namenode.renewLease(clientName);
+        /**
+         * 更新上一次的续约时间
+         */
         updateLastLeaseRenewal();
         return true;
       } catch (IOException e) {
@@ -1632,6 +1638,9 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
                              int buffersize,
                              ChecksumOpt checksumOpt)
       throws IOException {
+    /**
+     *
+     */
     return create(src, permission, flag, true,
         replication, blockSize, progress, buffersize, checksumOpt, null);
   }
@@ -1697,10 +1706,20 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     if(LOG.isDebugEnabled()) {
       LOG.debug(src + ": masked=" + masked);
     }
+    /**
+     * 往文件目录树里面添加文件
+     * 添加契约
+     * 启动DataStreamer，但是阻塞住了，因为dataqueue没有数据
+     */
     final DFSOutputStream result = DFSOutputStream.newStreamForCreate(this,
         src, masked, flag, createParent, replication, blockSize, progress,
         buffersize, dfsClientConf.createChecksum(checksumOpt),
         getFavoredNodesStr(favoredNodes));
+
+    /**
+     * 开启续约
+     * 类似心跳
+     */
     beginFileLease(result.getFileId(), result);
     return result;
   }

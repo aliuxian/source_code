@@ -287,6 +287,10 @@ class LeaseRenewer {
       if (!isRunning() || isRenewerExpired()) {
         //start a new deamon with a new id.
         final int id = ++currentId;
+
+        /**
+         * 创建一个后台线程，进行续约操作
+         */
         daemon = new Daemon(new Runnable() {
           @Override
           public void run() {
@@ -295,6 +299,9 @@ class LeaseRenewer {
                 LOG.debug("Lease renewer daemon for " + clientsString()
                     + " with renew id " + id + " started");
               }
+              /**
+               * LeaseRenewer 用来续约的
+               */
               LeaseRenewer.this.run(id);
             } catch(InterruptedException e) {
               if (LOG.isDebugEnabled()) {
@@ -414,6 +421,9 @@ class LeaseRenewer {
       final DFSClient c = copies.get(i);
       //skip if current client name is the same as the previous name.
       if (!c.getClientName().equals(previousName)) {
+        /**
+         *
+         */
         if (!c.renewLease()) {
           if (LOG.isDebugEnabled()) {
             LOG.debug("Did not renew lease for client " +
@@ -434,11 +444,25 @@ class LeaseRenewer {
    * when the lease period is half over.
    */
   private void run(final int id) throws InterruptedException {
+
+    /**
+     * 每隔一秒执行一次
+     */
     for(long lastRenewed = Time.monotonicNow(); !Thread.interrupted();
         Thread.sleep(getSleepPeriod())) {
+      /**
+       * 当前时间减上一次续约的时间
+       */
       final long elapsed = Time.monotonicNow() - lastRenewed;
+      /**
+       * getRenewalTime()  返回 值  30s
+       * 没30s检更新一次
+       */
       if (elapsed >= getRenewalTime()) {
         try {
+          /**
+           * 续约
+           */
           renew();
           if (LOG.isDebugEnabled()) {
             LOG.debug("Lease renewer daemon for " + clientsString()

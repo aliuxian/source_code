@@ -599,6 +599,7 @@ class NameNodeRpcServer implements NamenodeProtocols {
       boolean createParent, short replication, long blockSize, 
       CryptoProtocolVersion[] supportedVersions)
       throws IOException {
+      // 检查namanode的状态
     checkNNStartup();
     String clientMachine = getClientMachine();
     if (stateChangeLog.isDebugEnabled()) {
@@ -619,6 +620,9 @@ class NameNodeRpcServer implements NamenodeProtocols {
     try {
       PermissionStatus perm = new PermissionStatus(getRemoteUser()
           .getShortUserName(), null, masked);
+        /**
+         *
+         */
       status = namesystem.startFile(src, perm, clientName, clientMachine,
           flag.get(), createParent, replication, blockSize, supportedVersions,
           cacheEntry != null);
@@ -981,7 +985,9 @@ class NameNodeRpcServer implements NamenodeProtocols {
 
   @Override // ClientProtocol
   public void renewLease(String clientName) throws IOException {
+
     checkNNStartup();
+
     namesystem.renewLease(clientName);        
   }
 

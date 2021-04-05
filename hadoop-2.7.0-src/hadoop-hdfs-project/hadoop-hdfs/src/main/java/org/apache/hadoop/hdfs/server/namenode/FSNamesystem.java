@@ -2309,6 +2309,9 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
 
     HdfsFileStatus status = null;
     try {
+      /**
+       *
+       */
       status = startFileInt(src, permissions, holder, clientMachine, flag,
           createParent, replication, blockSize, supportedVersions,
           logRetryCache);
@@ -2364,6 +2367,9 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     boolean overwrite = flag.contains(CreateFlag.OVERWRITE);
     boolean isLazyPersist = flag.contains(CreateFlag.LAZY_PERSIST);
 
+    /**
+     * 等待元数据加载完成
+     */
     waitForLoadingFSImage();
 
     /**
@@ -2386,6 +2392,9 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     if (provider != null) {
       readLock();
       try {
+        /**
+         *
+         */
         src = dir.resolvePath(pc, src, pathComponents);
         INodesInPath iip = dir.getINodesInPath4Write(src);
         // Nothing to do if the path is not within an EZ
@@ -2424,8 +2433,14 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       checkNameNodeSafeMode("Cannot create file" + src);
       dir.writeLock();
       try {
+        /**
+         *
+         */
         src = dir.resolvePath(pc, src, pathComponents);
         final INodesInPath iip = dir.getINodesInPath4Write(src);
+        /**
+         *
+         */
         toRemoveBlocks = startFileInternal(
             pc, iip, permissions, holder,
             clientMachine, create, overwrite,
@@ -2548,9 +2563,18 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       INodeFile newNode = null;
 
       // Always do an implicit mkdirs for parent directory tree.
+      /**
+       * 获取上传文件的父目录：
+       * hadoop fs -put a.txt /user/warehouse/data/a.txt
+       * parent path  ==>  /user/warehouse/data/
+       */
       Map.Entry<INodesInPath, String> parent = FSDirMkdirOp
           .createAncestorDirectories(dir, iip, permissions);
       if (parent != null) {
+        /**
+         * 往文件目录树里面添加INodeFile节点
+         * dir 就是 FSDirectory
+         */
         iip = dir.addFile(parent.getKey(), parent.getValue(), permissions,
             replication, blockSize, holder, clientMachine);
         newNode = iip != null ? iip.getLastINode().asFile() : null;
@@ -2559,6 +2583,16 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       if (newNode == null) {
         throw new IOException("Unable to add " + src +  " to namespace");
       }
+      /***
+       * 添加契约
+       *
+       * HDFS上面的文件不支持并发写
+       * 契约：
+       *     同一时间只能有一个客户端获取到NameNode上面的一个文件的契约，然后才可以向拥有契约的文件写入数据。
+       *     没有契约的客户端不能写，
+       *
+       *
+       */
       leaseManager.addLease(newNode.getFileUnderConstructionFeature()
           .getClientName(), src);
 
@@ -4413,6 +4447,9 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     try {
       checkOperation(OperationCategory.WRITE);
       checkNameNodeSafeMode("Cannot renew lease for " + holder);
+      /**
+       *
+       */
       leaseManager.renewLease(holder);
     } finally {
       readUnlock();

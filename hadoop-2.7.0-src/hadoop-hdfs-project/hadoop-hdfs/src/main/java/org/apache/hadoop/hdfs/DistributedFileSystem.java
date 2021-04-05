@@ -384,6 +384,9 @@ public class DistributedFileSystem extends FileSystem {
   public FSDataOutputStream create(Path f, FsPermission permission,
       boolean overwrite, int bufferSize, short replication, long blockSize,
       Progressable progress) throws IOException {
+    /**
+     *
+     */
     return this.create(f, permission,
         overwrite ? EnumSet.of(CreateFlag.CREATE, CreateFlag.OVERWRITE)
             : EnumSet.of(CreateFlag.CREATE), bufferSize, replication,
@@ -439,9 +442,14 @@ public class DistributedFileSystem extends FileSystem {
     final EnumSet<CreateFlag> cflags, final int bufferSize,
     final short replication, final long blockSize, final Progressable progress,
     final ChecksumOpt checksumOpt) throws IOException {
+
     statistics.incrementWriteOps(1);
     Path absF = fixRelativePart(f);
+
     return new FileSystemLinkResolver<FSDataOutputStream>() {
+      /**
+       * dfs.create()
+       */
       @Override
       public FSDataOutputStream doCall(final Path p)
           throws IOException, UnresolvedLinkException {
