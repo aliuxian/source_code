@@ -385,6 +385,9 @@ public class DFSOutputStream extends FSOutputSummer
       while (!streamerClosed && dfsClient.clientRunning) {
 
 
+        /**
+         * 如果client写数据到第一个datanode出错误，就会将hasError置为true
+         */
         // if the Responder encountered an error, shutdown Responder
         if (hasError && response != null) {
           try {

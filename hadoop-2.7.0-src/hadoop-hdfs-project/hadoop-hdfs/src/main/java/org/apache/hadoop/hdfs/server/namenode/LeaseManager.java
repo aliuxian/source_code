@@ -150,10 +150,12 @@ public class LeaseManager {
   
   /**
    * Adds (or re-adds) the lease for the specified file.
+   * 客户端holder
+   * 目标文件src
    */
   synchronized Lease addLease(String holder, String src) {
     /**
-     * 先查看该node的契约是否已经存在
+     * 先查看该client是否已经持有该节点的契约
      */
     Lease lease = getLease(holder);
     if (lease == null) {
@@ -495,7 +497,7 @@ public class LeaseManager {
 
     while(leaseToCheck != null) {
       /**
-       * 最老的那个契约是否过去了
+       * 最老的那个契约是否过期了
        * 如果没有过期，就break了，不会往下执行了，因为最老的都还没过期，其他的肯定也不会过期
        */
       if (!leaseToCheck.expiredHardLimit()) {

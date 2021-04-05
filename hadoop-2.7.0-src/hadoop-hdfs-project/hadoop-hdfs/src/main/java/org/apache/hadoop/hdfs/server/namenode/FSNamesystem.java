@@ -2392,9 +2392,6 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     if (provider != null) {
       readLock();
       try {
-        /**
-         *
-         */
         src = dir.resolvePath(pc, src, pathComponents);
         INodesInPath iip = dir.getINodesInPath4Write(src);
         // Nothing to do if the path is not within an EZ

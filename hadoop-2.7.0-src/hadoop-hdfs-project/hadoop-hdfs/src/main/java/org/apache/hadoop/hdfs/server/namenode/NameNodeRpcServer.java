@@ -601,6 +601,7 @@ class NameNodeRpcServer implements NamenodeProtocols {
       throws IOException {
       // 检查namanode的状态
     checkNNStartup();
+
     String clientMachine = getClientMachine();
     if (stateChangeLog.isDebugEnabled()) {
       stateChangeLog.debug("*DIR* NameNode.create: file "
