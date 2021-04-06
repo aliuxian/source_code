@@ -91,7 +91,11 @@ private[spark] class ResultTask[T, U](
     } else 0L
 
     /**
-     *
+     * rdd.iterator(partition, context) 获取到数据之后，就会执行func，这里以及是最后action算子的func
+     * rdd.map(func).saveAsTextFile(...)
+     * map的func，的执行是在rdd.iterator(partition, context)这个里面的逻辑。还会涉及到ShuffleReader，在compute里面，
+     * 最后返回的数据已经是执行到action的了
+     * saveAsTextFile的func是Spark自己实现的，
      */
     func(context, rdd.iterator(partition, context))
   }

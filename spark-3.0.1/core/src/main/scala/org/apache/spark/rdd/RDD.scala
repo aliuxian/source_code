@@ -355,6 +355,10 @@ abstract class RDD[T: ClassTag](
       // 执行计算
       /**
        * RDD的的五大特性之一：compute
+       * 就是作用在RDD上面的函数
+       * rdd1.map(func).reduce(func)
+       * 如果是shuffleRDD那么就会获取ShuffleReader来获取数据，
+       * 如果不是，那么就会执行对应的func
        */
       compute(split, context)
     }
