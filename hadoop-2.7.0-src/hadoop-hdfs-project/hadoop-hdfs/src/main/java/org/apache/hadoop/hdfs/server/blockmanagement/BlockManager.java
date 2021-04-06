@@ -1540,12 +1540,19 @@ public class BlockManager {
       final long blocksize,
       final List<String> favoredNodes,
       final byte storagePolicyID) throws IOException {
+
     List<DatanodeDescriptor> favoredDatanodeDescriptors = 
         getDatanodeDescriptors(favoredNodes);
+
     final BlockStoragePolicy storagePolicy = storagePolicySuite.getPolicy(storagePolicyID);
+
+    /**
+     *
+     */
     final DatanodeStorageInfo[] targets = blockplacement.chooseTarget(src,
         numOfReplicas, client, excludedNodes, blocksize, 
         favoredDatanodeDescriptors, storagePolicy);
+
     if (targets.length < minReplication) {
       throw new IOException("File " + src + " could only be replicated to "
           + targets.length + " nodes instead of minReplication (="
@@ -1555,6 +1562,7 @@ public class BlockManager {
           + (excludedNodes == null? "no": excludedNodes.size())
           + " node(s) are excluded in this operation.");
     }
+
     return targets;
   }
 

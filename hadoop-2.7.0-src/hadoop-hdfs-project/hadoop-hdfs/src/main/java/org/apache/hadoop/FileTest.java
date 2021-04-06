@@ -24,7 +24,12 @@ public class FileTest {
          * 写数据
          */
         FSDataOutputStream fsous = fileSystem.create(new Path("/tmp/tmp.txt"));
-        // write方法是在FSDataOutputStream的内部类PositionCache中实现的
+        /**
+         * PositionCache.write()
+         *      ==>
+         *          DFSOutputStream.write()  (FSOutputSummer.write())
+         *
+         */
         fsous.write("dddd".getBytes(StandardCharsets.UTF_8));
 
     }

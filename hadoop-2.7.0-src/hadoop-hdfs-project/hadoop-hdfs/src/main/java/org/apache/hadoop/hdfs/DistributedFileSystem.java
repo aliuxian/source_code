@@ -459,6 +459,11 @@ public class DistributedFileSystem extends FileSystem {
         final DFSOutputStream dfsos = dfs.create(getPathName(p), permission,
                 cflags, replication, blockSize, progress, bufferSize,
                 checksumOpt);
+        /**
+         * fileSystem.create()  的返回值  dfsos   ==》  DFSOutputStream
+         *
+         * 所以真正写数据的时候，调用的是DFSOutputStream.write()
+         */
         return dfs.createWrappedOutputStream(dfsos, statistics);
       }
       @Override

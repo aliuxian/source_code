@@ -76,8 +76,9 @@ abstract public class FSOutputSummer extends OutputStream {
 
     buf[count++] = (byte)b;
     if(count == buf.length) {
-
-
+      /**
+       *
+       */
       flushBuffer();
     }
 

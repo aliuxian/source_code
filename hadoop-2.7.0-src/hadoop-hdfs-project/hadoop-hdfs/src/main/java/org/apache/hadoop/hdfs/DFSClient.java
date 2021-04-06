@@ -1498,9 +1498,16 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
       getCryptoProtocolVersion(feInfo);
       final CryptoCodec codec = getCryptoCodec(conf, feInfo);
       KeyVersion decrypted = decryptEncryptedDataEncryptionKey(feInfo);
+      /**
+       * dfsos 赋值给 FilterOutPutStream 的out成员变量
+       */
       final CryptoOutputStream cryptoOut =
           new CryptoOutputStream(dfsos, codec,
               decrypted.getMaterial(), feInfo.getIV(), startPos);
+      /**
+       * HdfsDataOutputStream 的父类 FilterOutPutStream 的 out 成员变量  重新被赋值为 PositionCache()
+       * PositionCache() 初始化的时候又会将 cryptoOut 赋值给其父类 FilterOutPutStream 的out成员变量
+       */
       return new HdfsDataOutputStream(cryptoOut, statistics, startPos);
     } else {
       // No FileEncryptionInfo present so no encryption.

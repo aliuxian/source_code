@@ -1323,6 +1323,7 @@ public class DFSOutputStream extends FSOutputSummer
         //
         success = createBlockOutputStream(nodes, storageTypes, 0L, false);
 
+
         if (!success) {
           /**
            * 建立数据管道失败了

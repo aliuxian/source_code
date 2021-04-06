@@ -197,8 +197,12 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     if (excludedNodes == null) {
       excludedNodes = new HashSet<Node>();
     }
-     
+
+    /**
+     * 计算每个机架要分配的副本数
+     */
     int[] result = getMaxNodesPerRack(chosenStorage.size(), numOfReplicas);
+
     numOfReplicas = result[0];
     int maxNodesPerRack = result[1];
       
@@ -210,9 +214,14 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
 
     boolean avoidStaleNodes = (stats != null
         && stats.isAvoidingStaleDataNodesForWrite());
+
+    /**
+     *
+     */
     final Node localNode = chooseTarget(numOfReplicas, writer, excludedNodes,
         blocksize, maxNodesPerRack, results, avoidStaleNodes, storagePolicy,
         EnumSet.noneOf(StorageType.class), results.isEmpty());
+
     if (!returnChosenNodes) {  
       results.removeAll(chosenStorage);
     }
