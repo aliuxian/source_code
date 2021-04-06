@@ -85,9 +85,14 @@ public class ReplaceDatanodeOnFailure {
       public boolean satisfy(final short replication,
           final DatanodeInfo[] existings, final int n, final boolean isAppend,
           final boolean isHflushed) {
+
         if (replication < 3) {
+          // 副本数量小于3，那么存活的datanode最多还剩1个了，因为挂了一个才走到这的
+          // 返回false
           return false;
         } else {
+
+          // 如果存活的节点数量小于副本数的一半（向下取整）
           if (n <= (replication/2)) {
             return true;
           } else {
@@ -137,11 +142,19 @@ public class ReplaceDatanodeOnFailure {
   public boolean satisfy(
       final short replication, final DatanodeInfo[] existings,
       final boolean isAppend, final boolean isHflushed) {
+    // n是存活节点数量
     final int n = existings == null? 0: existings.length;
+
     if (n == 0 || n >= replication) {
       //don't need to add datanode for any policy.
+      /**
+       * 不需要使用尽最大努力的策略
+       */
       return false;
     } else {
+      /**
+       * policy  默认是开启尽最大努力交付的，并且使用的是策略是DEFAULT
+       */
       return policy.getCondition().satisfy(
           replication, existings, n, isAppend, isHflushed);
     }

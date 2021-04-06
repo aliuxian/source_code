@@ -408,6 +408,7 @@ public class DFSOutputStream extends FSOutputSummer
           if (hasError && (errorIndex >= 0 || restartingNodeIndex.get() >= 0)) {
             /**
              * 关闭各种流
+             * 以及重新创建管道
              */
             doSleep = processDatanodeError();
           }
@@ -832,6 +833,9 @@ public class DFSOutputStream extends FSOutputSummer
               one = ackQueue.getFirst();
             }
             if (one.getSeqno() != seqno) {
+              /**
+               * 发送成功的packet和ackqueue中的第一个packet不相等，就会抛异常
+               */
               throw new IOException("ResponseProcessor: Expecting seqno " +
                                     " for block " + block +
                                     one.getSeqno() + " but received " + seqno);
@@ -1163,7 +1167,10 @@ public class DFSOutputStream extends FSOutputSummer
 
           final String[] newStorageIDs = new String[newnodes.length];
           arraycopy(storageIDs, newStorageIDs, errorIndex);
-          
+
+          /**
+           * 将newnodes 赋值给nodes
+           */
           setPipeline(newnodes, newStorageTypes, newStorageIDs);
 
           // Just took care of a node error while waiting for a node restart
@@ -1191,10 +1198,17 @@ public class DFSOutputStream extends FSOutputSummer
         /**
          * 假如是三副本，如果有两个或者两个以上出问题，就走这个if分支，
          * 出问题的节点数大于副本数/2
+         *
+         * dfsClient.dtpReplaceDatanodeOnFailure.satisfy(blockReplication,
+         *             nodes, isAppend, isHflushed)
+         * 返回true那么就需要申请新的节点
+         *        如果存活的节点数量小于副本数的一半（向下取整）,就会进入if，申请新的节点
+         *
          */
         // Check if replace-datanode policy is satisfied.
         if (dfsClient.dtpReplaceDatanodeOnFailure.satisfy(blockReplication,
             nodes, isAppend, isHflushed)) {
+
           try {
             /**
              * 重新申请节点，重试建立管道
@@ -1218,12 +1232,6 @@ public class DFSOutputStream extends FSOutputSummer
         
         // set up the pipeline again with the remaining nodes
         if (failPacket) { // for testing
-          /**
-           * 用剩余的节点，建立新的管道。
-           * 这个时候副本数就不够了，后面心跳的时候会再平衡。
-           * datanode  向 namenode 汇报的时候  =>  再平衡
-           *
-           */
           success = createBlockOutputStream(nodes, storageTypes, newGS, isRecovery);
           failPacket = false;
           try {
@@ -1233,6 +1241,12 @@ public class DFSOutputStream extends FSOutputSummer
             Thread.sleep(2000);
           } catch (InterruptedException ie) {}
         } else {
+          /**
+           * 用剩余的节点，建立新的管道。
+           * 这个时候副本数就不够了，后面心跳的时候会再平衡。
+           * datanode  向 namenode 汇报的时候  =>  再平衡
+           *
+           */
           success = createBlockOutputStream(nodes, storageTypes, newGS, isRecovery);
         }
 
