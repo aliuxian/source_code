@@ -290,11 +290,25 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
 
     // Make fake resource offers on all executors
     private def makeOffers(): Unit = {
+
+      /**
+       * 为所有的Task生成TaskDescription
+       * 描述了每一个Task需要到那个Executor上面执行，
+       * 以及Task执行需要的资源，jar，配置文件等等
+       * taskDescs  两维，第一维是executor，第二维是task
+       */
       // Make sure no executor is killed while some task is launching on it
       val taskDescs = withLock {
+        /**
+         * 所有活跃的executor
+         */
         // Filter out executors under killing
         val activeExecutors = executorDataMap.filterKeys(isExecutorActive)
 
+        /**
+         * 所有可正常工作的executor，以及它们的资源情况
+         * WorkerOffer封装了一个Executor可使用的所有资源
+         */
         val workOffers = activeExecutors.map {
           case (id, executorData) =>
             new WorkerOffer(id, executorData.executorHost, executorData.freeCores,
@@ -305,8 +319,8 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
         }.toIndexedSeq
 
         /**
-         * 申请资源
-         * 1. z指定每一个task执行的Executor
+         * 一个stage中的所有task都是一样的
+         * 哪些Executor执行哪些Task（考虑最优位置）
          */
         scheduler.resourceOffers(workOffers)
       }
@@ -350,10 +364,18 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
       }
     }
 
+    /**
+     * 完成所有Task的提交
+     * @param tasks
+     */
     // Launch tasks returned by a set of resource offers
     private def launchTasks(tasks: Seq[Seq[TaskDescription]]): Unit = {
       for (task <- tasks.flatten) {
         val serializedTask = TaskDescription.encode(task)
+
+        /**
+         * 如果序列化之后的task大小超过了最大的消息限制，拆包处理
+         */
         if (serializedTask.limit() >= maxRpcMessageSize) {
           Option(scheduler.taskIdToTaskSetManager.get(task.taskId)).foreach { taskSetMgr =>
             try {
@@ -368,6 +390,9 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
           }
         }
         else {
+          /**
+           * 执行该Task的Executor
+           */
           val executorData = executorDataMap(task.executorId)
           // Do resources allocation here. The allocated resources will get released after the task
           // finishes.
@@ -381,7 +406,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
             s"${executorData.executorHost}.")
 
           /**
-           *
+           *  将Task发送给Executor
            */
           executorData.executorEndpoint.send(LaunchTask(new SerializableBuffer(serializedTask)))
         }

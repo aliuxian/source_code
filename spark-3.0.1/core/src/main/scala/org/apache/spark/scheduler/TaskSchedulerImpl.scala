@@ -404,9 +404,9 @@ private[spark] class TaskSchedulerImpl(
   }
 
   /**
-   * Called by cluster manager to offer resources on slaves. We respond by asking our active task
-   * sets for tasks in order of priority. We fill each node with tasks in a round-robin manner so
-   * that tasks are balanced across the cluster.
+   * Called by cluster manager to offer resources on slaves.
+   * We respond by asking our active task sets for tasks in order of priority.
+   * We fill each node with tasks in a round-robin manner so that tasks are balanced across the cluster.
    */
   def resourceOffers(offers: IndexedSeq[WorkerOffer]): Seq[Seq[TaskDescription]] = synchronized {
     // Mark each slave as alive and remember its hostname
@@ -446,11 +446,22 @@ private[spark] class TaskSchedulerImpl(
     }.getOrElse(offers)
 
     val shuffledOffers = shuffleOffers(filteredOffers)
+
+    /**
+     * 每一个节点可以执行多少个task
+     * 每一个节点封装为一个WorkerOffer
+     */
     // Build a list of tasks to assign to each worker.
     val tasks = shuffledOffers.map(o => new ArrayBuffer[TaskDescription](o.cores / CPUS_PER_TASK))
 
+    /**
+     * 每个Executor可使用的资源
+     */
     val availableResources = shuffledOffers.map(_.resources).toArray
     val availableCpus = shuffledOffers.map(o => o.cores).toArray
+    /**
+     * 等待执行的TaskSet
+     */
     val sortedTaskSets = rootPool.getSortedTaskSetQueue.filterNot(_.isZombie)
 
     for (taskSet <- sortedTaskSets) {
@@ -476,6 +487,7 @@ private[spark] class TaskSchedulerImpl(
       } else {
         -1
       }
+
       // Skip the barrier taskSet if the available slots are less than the number of pending tasks.
       if (taskSet.isBarrier && availableSlots < taskSet.numTasks) {
         // Skip the launch process.
