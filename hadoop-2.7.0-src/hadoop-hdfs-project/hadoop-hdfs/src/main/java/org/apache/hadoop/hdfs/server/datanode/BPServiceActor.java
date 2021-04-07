@@ -852,6 +852,9 @@ class BPServiceActor implements Runnable {
         // init stuff
         try {
           // setup storage
+          /**
+           * 与namenode建立连接，并向namenode进行注册
+           */
           connectToNNAndHandshake();
           break;
         } catch (IOException ioe) {

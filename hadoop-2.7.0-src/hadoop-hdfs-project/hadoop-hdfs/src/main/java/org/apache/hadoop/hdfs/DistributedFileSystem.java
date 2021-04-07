@@ -1054,8 +1054,14 @@ public class DistributedFileSystem extends FileSystem {
 
   private boolean mkdirsInternal(Path f, final FsPermission permission,
       final boolean createParent) throws IOException {
+
     statistics.incrementWriteOps(1);
+
+    /**
+     * 如果是相对路径，就补齐为绝对路径
+     */
     Path absF = fixRelativePart(f);
+
     return new FileSystemLinkResolver<Boolean>() {
       @Override
       public Boolean doCall(final Path p)
