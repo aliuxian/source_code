@@ -146,6 +146,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       // 序列化实例
       final SerializerInstance serInstance = serializer.newInstance();
       final long openStartTime = System.nanoTime();
+
       partitionWriters = new DiskBlockObjectWriter[numPartitions];
       partitionWriterSegments = new FileSegment[numPartitions];
       for (int i = 0; i < numPartitions; i++) {
@@ -153,6 +154,11 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
             blockManager.diskBlockManager().createTempShuffleBlock();
         final File file = tempShuffleBlockIdPlusFile._2();
         final BlockId blockId = tempShuffleBlockIdPlusFile._1();
+
+        /**
+         * 为每一个分区创建一个DiskBlockObjectWriter
+         * 直接将JVM中的Object写到对应的分区文件，并且支持追加写
+         */
         partitionWriters[i] =
             blockManager.getDiskWriter(blockId, file, serInstance, fileBufferSize, writeMetrics);
       }
@@ -161,6 +167,9 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       // included in the shuffle write time.
       writeMetrics.incWriteTime(System.nanoTime() - openStartTime);
 
+      /**
+       * 将各个分区的数据写出去
+       */
       while (records.hasNext()) {
         final Product2<K, V> record = records.next();
         final K key = record._1();

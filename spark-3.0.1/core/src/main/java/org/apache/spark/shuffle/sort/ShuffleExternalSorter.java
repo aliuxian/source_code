@@ -433,6 +433,8 @@ final class ShuffleExternalSorter extends MemoryConsumer {
   private void acquireNewPageIfNecessary(int required) {
     /**
      * 第一条数据进来的时候currentPage就会等于null
+     *
+     * pageCursor + required  已经使用的加上要申请的 已经超出了page的范围
      */
     if (currentPage == null ||
       pageCursor + required > currentPage.getBaseOffset() + currentPage.size() ) {

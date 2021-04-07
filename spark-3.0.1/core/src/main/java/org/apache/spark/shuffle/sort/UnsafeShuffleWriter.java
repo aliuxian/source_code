@@ -247,6 +247,9 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     assert(sorter != null);
     final K key = record._1();
     final int partitionId = partitioner.getPartition(key);
+    /**
+     * 每条数据都会重置
+     */
     serBuffer.reset();
     /**
      * 将数据写入到buffer中

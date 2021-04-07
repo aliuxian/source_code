@@ -153,7 +153,7 @@ public class TaskMemoryManager {
       // spilling, avoid to have too many spilled files.
       /**
        * 申请到的实际内存小于要申请的内存，那么就进行spill
-       * 首先尝试释放其它的consumer占用的内存(spill)
+       * 首先尝试释放其它的consumer跟踪的内存(spill)
        */
       if (got < required) {
         // Call spill() on other consumers to release memory
