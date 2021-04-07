@@ -710,6 +710,10 @@ public class RMAppImpl implements RMApp, Recoverable {
           + event.getType());
       final RMAppState oldState = getState();
       try {
+
+        /**
+         * 状态机
+         */
         /* keep the master in sync with the state machine */
         this.stateMachine.doTransition(event.getType(), event);
       } catch (InvalidStateTransitonException e) {

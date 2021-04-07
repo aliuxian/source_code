@@ -97,6 +97,9 @@ public class AsyncDispatcher extends AbstractService implements Dispatcher {
           }
           Event event;
           try {
+            /**
+             * 获取事件
+             */
             event = eventQueue.take();
           } catch(InterruptedException ie) {
             if (!stopped) {
@@ -105,6 +108,9 @@ public class AsyncDispatcher extends AbstractService implements Dispatcher {
             return;
           }
           if (event != null) {
+            /**
+             * 调度事件
+             */
             dispatch(event);
           }
         }
@@ -167,11 +173,18 @@ public class AsyncDispatcher extends AbstractService implements Dispatcher {
           + event.toString());
     }
 
+    /**
+     * type  对于提交作业  ==> RMAppEventType
+     */
     Class<? extends Enum> type = event.getType().getDeclaringClass();
 
     try{
       EventHandler handler = eventDispatchers.get(type);
       if(handler != null) {
+        /**
+         * 开始处理事件
+         * RMAppEventType =>  ApplicationEventDispatcher
+         */
         handler.handle(event);
       } else {
         throw new Exception("No handler for registered for " + type);
@@ -240,6 +253,9 @@ public class AsyncDispatcher extends AbstractService implements Dispatcher {
             + remCapacity);
       }
       try {
+        /**
+         * 事件入队
+         */
         eventQueue.put(event);
       } catch (InterruptedException e) {
         if (!stopped) {

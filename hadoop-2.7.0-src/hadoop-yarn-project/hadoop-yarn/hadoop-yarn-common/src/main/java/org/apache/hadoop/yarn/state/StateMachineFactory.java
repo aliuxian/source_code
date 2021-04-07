@@ -295,9 +295,12 @@ final public class StateMachineFactory
     //  and this code only gets called from inside a working InnerStateMachine .
     Map<EVENTTYPE, Transition<OPERAND, STATE, EVENTTYPE, EVENT>> transitionMap
       = stateMachineTable.get(oldState);
+
     if (transitionMap != null) {
+
       Transition<OPERAND, STATE, EVENTTYPE, EVENT> transition
           = transitionMap.get(eventType);
+
       if (transition != null) {
         return transition.doTransition(operand, oldState, event, eventType);
       }

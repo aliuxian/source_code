@@ -790,6 +790,9 @@ public class ResourceManager extends CompositeService implements Recoverable {
       RMApp rmApp = this.rmContext.getRMApps().get(appID);
       if (rmApp != null) {
         try {
+          /**
+           * RMAppImpl
+           */
           rmApp.handle(event);
         } catch (Throwable t) {
           LOG.error("Error in handling event type " + event.getType()
