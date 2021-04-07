@@ -68,7 +68,7 @@ private[spark] class ShuffleWriteProcessor extends Serializable with Logging {
       /**
        * writer 有三种实现：
        * 普通机制：和mr的一样
-       * bypass机制：
+       * bypass机制：不需要map聚合  分区数小于200
        * unsafe：不需要map聚合，分区数小于16777216，Serializer支持relocation
        *
        * 最后每个task只会生成一个数据文件，以及一个索引文件

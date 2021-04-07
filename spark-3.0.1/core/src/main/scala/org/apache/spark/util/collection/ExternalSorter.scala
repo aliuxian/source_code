@@ -224,6 +224,9 @@ private[spark] class ExternalSorter[K, V, C](
     var estimatedSize = 0L
 
     if (usingMap) {
+      /**
+       * 预估当前集合的大小，与字节为单位
+       */
       estimatedSize = map.estimateSize()
       /**
        * 需要溢写，就返回一个新的结构用来写

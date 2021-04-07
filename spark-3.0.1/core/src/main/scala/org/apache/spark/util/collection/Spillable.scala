@@ -88,20 +88,28 @@ private[spark] abstract class Spillable[C](taskMemoryManager: TaskMemoryManager)
     /**
      * elementsRead 处理的数据条数
      * currentMemory 当前缓冲区的实际大小
-     * myMemoryThreshold 默认5M
+     * myMemoryThreshold 实际的阈值，最开始默认值是5M
+     * 都是以字节为单位
+     *
+     * elementsRead % 32 == 0   刚好是4字节的整数倍
      */
     if (elementsRead % 32 == 0 && currentMemory >= myMemoryThreshold) {
       // Claim up to double our current memory from the shuffle memory pool
       /**
-       *
+       * currentMemory >= myMemoryThreshold   已使用的内存大于实际阈值
+       * 尝试申请内存（2 * currentMemory -  myMemoryThreshold ）   相当于扩容一倍
        */
       val amountToRequest = 2 * currentMemory - myMemoryThreshold
       val granted = acquireMemory(amountToRequest)
+
+      /**
+       * 更新实际阈值
+       */
       myMemoryThreshold += granted
       // If we were granted too little memory to grow further (either tryToAcquire returned 0,
       // or we already had more memory than myMemoryThreshold), spill the current collection
       /**
-       * 当前占用的内存已经超过了阈值，就进行溢写
+       * 当前占用的内存已经超过了阈值，并且申请到的内存也不够
        */
       shouldSpill = currentMemory >= myMemoryThreshold
     }
@@ -113,12 +121,14 @@ private[spark] abstract class Spillable[C](taskMemoryManager: TaskMemoryManager)
     // Actually spill
     if (shouldSpill) {
       _spillCount += 1
+      // 打印日志信息
       logSpillage(currentMemory)
 
       /**
        * 溢写
        */
       spill(collection)
+
       _elementsRead = 0
       _memoryBytesSpilled += currentMemory
       releaseMemory()
@@ -155,6 +165,10 @@ private[spark] abstract class Spillable[C](taskMemoryManager: TaskMemoryManager)
    * Release our memory back to the execution pool so that other tasks can grab it.
    */
   def releaseMemory(): Unit = {
+    /**
+     * 将超出初始容量大小的部分是否。
+     * initialMemoryThreshold  默认5M
+     */
     freeMemory(myMemoryThreshold - initialMemoryThreshold)
     myMemoryThreshold = initialMemoryThreshold
   }

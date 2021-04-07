@@ -184,6 +184,7 @@ class ExternalAppendOnlyMap[K, V, C](
    */
   override protected[this] def spill(collection: SizeTracker): Unit = {
     val inMemoryIterator = currentMap.destructiveSortedIterator(keyComparator)
+
     val diskMapIterator = spillMemoryIteratorToDisk(inMemoryIterator)
     spilledMaps += diskMapIterator
   }

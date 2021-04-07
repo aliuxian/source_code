@@ -41,8 +41,8 @@ private[spark] trait WritablePartitionedPairCollection[K, V] {
     : Iterator[((Int, K), V)]
 
   /**
-   * Iterate through the data and write out the elements instead of returning them. Records are
-   * returned in order of their partition ID and then the given comparator.
+   * Iterate through the data and write out the elements instead of returning them.
+   * Records are returned in order of their partition ID and then the given comparator.
    * This may destroy the underlying collection.
    */
   def destructiveSortedWritablePartitionedIterator(keyComparator: Option[Comparator[K]])

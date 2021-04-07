@@ -31,10 +31,15 @@ private[spark] class PartitionedAppendOnlyMap[K, V]
   def partitionedDestructiveSortedIterator(keyComparator: Option[Comparator[K]])
     : Iterator[((Int, K), V)] = {
 
+    /**8
+     * 比较器
+     * partitionKeyComparator  先比较分区大小，然后再比较key
+     *
+     */
     val comparator = keyComparator.map(partitionKeyComparator).getOrElse(partitionComparator)
 
     /**
-     *
+     * 排序
      */
     destructiveSortedIterator(comparator)
   }
