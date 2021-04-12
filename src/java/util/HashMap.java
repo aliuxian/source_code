@@ -690,6 +690,8 @@ public class HashMap<K,V> extends AbstractMap<K,V>
             n = (tab = resize()).length;
         // 路由到的散列表位置i为null。则直接在该位置插入要插入的元素。
         if ((p = tab[i = (n - 1) & hash]) == null)
+            // 这个地方可能会产生线程安全问题：一个线程到这之后交出cpu了。另外一个线程进来刚好也是这个位置，并且顺利将数据写入
+            // 那么第一个线程唤醒之后，就会将第二个线程的数据覆盖。ConcurrentHashMap中使用的是cas
             tab[i] = newNode(hash, key, value, null);
         // 定位的位置已经有元素了，
         else {
