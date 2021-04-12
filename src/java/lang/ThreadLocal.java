@@ -627,6 +627,7 @@ public class ThreadLocal<T> {
             for (Entry e = tab[i];
                  e != null;
                  e = tab[i = nextIndex(i, len)]) {
+
                 ThreadLocal<?> k = e.get();
 
                 // 当前Entry的key就是要修改的key，那么就进行修改，并返回
@@ -645,6 +646,7 @@ public class ThreadLocal<T> {
 
             /**
              * 当前map中没有这个key，是新的数据
+             * 并且map中也没有过期数据
              * 那么就将其加入到map中
              */
             tab[i] = new Entry(key, value);
@@ -809,7 +811,7 @@ public class ThreadLocal<T> {
          *
          * expungeStaleEntry会从当前位置往后遍历，遇到过期数据就置为null，不是过期数据就计算其正确下标
          * 如果正确下标与其所在的位置不是同一个位置，那么就是hash冲突了，
-         * 那么现在就将其放回正确的位置获取离正确位置尽可能近的一个空位，来优化查询性能
+         * 那么现在就将其放回正确的位置或者离正确位置尽可能近的一个空位，来优化查询性能
          *
          */
         private int expungeStaleEntry(int staleSlot) {
