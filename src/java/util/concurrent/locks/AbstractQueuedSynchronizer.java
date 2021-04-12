@@ -2281,7 +2281,7 @@ public abstract class AbstractQueuedSynchronizer
 
             // 0 挂起期间没有接收过中断信号
             // -1 挂起期间接收过中断
-            // 1 在挂起期间，为接收到中断信号，但是迁移到阻塞队列之后，接收过中断信号
+            // 1 在挂起期间，未接收到中断信号，但是迁移到阻塞队列之后，接收过中断信号
             int interruptMode = 0;
 
             // isOnSyncQueue 当前节点是否在阻塞队列中，
