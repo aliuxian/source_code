@@ -759,15 +759,18 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      */
 
     @SuppressWarnings("unchecked")
+    // 获取i位置的节点
     static final <K,V> Node<K,V> tabAt(Node<K,V>[] tab, int i) {
         return (Node<K,V>)U.getObjectVolatile(tab, ((long)i << ASHIFT) + ABASE);
     }
 
+    // 修改i位置的节点
     static final <K,V> boolean casTabAt(Node<K,V>[] tab, int i,
                                         Node<K,V> c, Node<K,V> v) {
         return U.compareAndSwapObject(tab, ((long)i << ASHIFT) + ABASE, c, v);
     }
 
+    // 在i位置插入一个节点
     static final <K,V> void setTabAt(Node<K,V>[] tab, int i, Node<K,V> v) {
         U.putObjectVolatile(tab, ((long)i << ASHIFT) + ABASE, v);
     }
@@ -778,11 +781,13 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * The array of bins. Lazily initialized upon first insertion.
      * Size is always a power of two. Accessed directly by iterators.
      */
+    // 散列表
     transient volatile Node<K,V>[] table;
 
     /**
      * The next table to use; non-null only while resizing.
      */
+    // 扩容是使用
     private transient volatile Node<K,V>[] nextTable;
 
     /**
@@ -906,13 +911,17 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      */
     public ConcurrentHashMap(int initialCapacity,
                              float loadFactor, int concurrencyLevel) {
+
         if (!(loadFactor > 0.0f) || initialCapacity < 0 || concurrencyLevel <= 0)
             throw new IllegalArgumentException();
         if (initialCapacity < concurrencyLevel)   // Use at least as many bins
             initialCapacity = concurrencyLevel;   // as estimated threads
+
         long size = (long)(1.0 + (long)initialCapacity / loadFactor);
+
         int cap = (size >= (long)MAXIMUM_CAPACITY) ?
             MAXIMUM_CAPACITY : tableSizeFor((int)size);
+
         this.sizeCtl = cap;
     }
 
@@ -947,17 +956,21 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * @throws NullPointerException if the specified key is null
      */
     public V get(Object key) {
+
         Node<K,V>[] tab; Node<K,V> e, p; int n, eh; K ek;
         // 计算key的hash值
         int h = spread(key.hashCode());
+
         // table已经初始化，并且对应的桶的位置不为null，
         if ((tab = table) != null && (n = tab.length) > 0 &&
             (e = tabAt(tab, (n - 1) & h)) != null) {
+
             // 如果是该桶的第一个元素，就返回value
             if ((eh = e.hash) == h) {
                 if ((ek = e.key) == key || (ek != null && key.equals(ek)))
                     return e.val;
             }
+
             else if (eh < 0)
                 // -1 fwd节点 ==》 正在扩容。 FWD的find方法， 到新表中继续找
                 // -2 TreeBin节点  红黑树， 调用TreeBin的find方法
@@ -2242,6 +2255,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      */
     static final class ForwardingNode<K,V> extends Node<K,V> {
         final Node<K,V>[] nextTable;
+
         ForwardingNode(Node<K,V>[] tab) {
             super(MOVED, null, null, null);
             this.nextTable = tab;
@@ -2249,7 +2263,9 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
 
         Node<K,V> find(int h, Object k) {
             // loop to avoid arbitrarily deep recursion on forwarding nodes
-            outer: for (Node<K,V>[] tab = nextTable;;) {
+            outer:
+            for (Node<K,V>[] tab = nextTable;;) {
+
                 Node<K,V> e; int n;
 
                 // 新表对应的桶位是null，
@@ -2684,15 +2700,16 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
                     if (tabAt(tab, i) == f) {
                         Node<K,V> ln, hn;
 
-                        // 当前桶位是链表
+                        // 当前桶位是链表或者只有一个元素
                         if (fh >= 0) {
 
                             // lastRun会引用链表末尾高位连续不变的node
-                            // eg：n = 16  那么链表中node的hash值 & 10000 得到结果相同且是链表末尾连续的node
-                            // 的第一个node将会被lastRun持有引用，
+                            // eg：n = 16  那么链表中node的hash值 & 10000 得到结果相同且是链表末尾连续的node 的第一个node将会被lastRun持有引用，
                             // 假如链表中node的后五位hash值如下
                             // 01101 11101 11101 01101 01101 01101
-                            // 那么最终lastRun就会指向第四个node
+                            // 分别与上 n
+                            // 0     1     1     0     0     0
+                            // 那么最终lastRun就会指向第四个node,因为最后都是0，lastRun就指向最后都是0的第一个
 
                             // runBit是当前节点相对于n的最高位的取值，用于支撑lastRun的更新
                             int runBit = fh & n;
@@ -2722,6 +2739,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
                             // 低位链表或高位链表
                             // 头插法
                             for (Node<K,V> p = f; p != lastRun; p = p.next) {
+
                                 int ph = p.hash; K pk = p.key; V pv = p.val;
                                 if ((ph & n) == 0)
                                     ln = new Node<K,V>(ph, pk, pv, ln);
