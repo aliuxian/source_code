@@ -61,7 +61,9 @@ class QuorumCall<KEY, RESULT> {
   
   static <KEY, RESULT> QuorumCall<KEY, RESULT> create(
       Map<KEY, ? extends ListenableFuture<RESULT>> calls) {
+
     final QuorumCall<KEY, RESULT> qr = new QuorumCall<KEY, RESULT>();
+
     for (final Entry<KEY, ? extends ListenableFuture<RESULT>> e : calls.entrySet()) {
       Preconditions.checkArgument(e.getValue() != null,
           "null future for key: " + e.getKey());
@@ -77,6 +79,7 @@ class QuorumCall<KEY, RESULT> {
         }
       });
     }
+
     return qr;
   }
   

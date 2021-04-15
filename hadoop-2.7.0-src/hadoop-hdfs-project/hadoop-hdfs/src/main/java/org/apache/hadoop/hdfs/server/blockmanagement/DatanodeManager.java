@@ -230,6 +230,20 @@ public class DatanodeManager {
     final int heartbeatRecheckInterval = conf.getInt(
         DFSConfigKeys.DFS_NAMENODE_HEARTBEAT_RECHECK_INTERVAL_KEY, 
         DFSConfigKeys.DFS_NAMENODE_HEARTBEAT_RECHECK_INTERVAL_DEFAULT); // 5 minutes
+
+    /**
+     * 2 * 5m + 10 * 1000 * 3
+     * 10分钟30秒
+     *
+     * 为什么：
+     * 心跳是利用网络传输的，网络是不稳定的
+     * 一个dataNode挂了，需要将其存储的block复制到其他datanode上面，这是一个开销很大的操作，所以不能随便就认定一个datanode挂了。
+     *
+     * 50070：
+     * start dataNode 很快就识别到了
+     * 但是
+     * stop datanode  很久才能看到
+     */
     this.heartbeatExpireInterval = 2 * heartbeatRecheckInterval
         + 10 * 1000 * heartbeatIntervalSeconds;
     final int blockInvalidateLimit = Math.max(20*(int)(heartbeatIntervalSeconds),
@@ -582,6 +596,7 @@ public class DatanodeManager {
 
   /** Is the datanode dead? */
   boolean isDatanodeDead(DatanodeDescriptor node) {
+    //
     return (node.getLastUpdateMonotonic() <
             (monotonicNow() - heartbeatExpireInterval));
   }
@@ -1360,6 +1375,7 @@ public class DatanodeManager {
           return new DatanodeCommand[]{RegisterCommand.REGISTER};
         }
 
+        // 更新DataNode的信息
         heartbeatManager.updateHeartbeat(nodeinfo, reports,
                                          cacheCapacity, cacheUsed,
                                          xceiverCount, failedVolumes,

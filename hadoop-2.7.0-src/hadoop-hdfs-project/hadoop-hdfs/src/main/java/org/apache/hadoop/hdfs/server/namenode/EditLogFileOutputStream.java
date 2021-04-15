@@ -94,6 +94,12 @@ public class EditLogFileOutputStream extends EditLogOutputStream {
 
   @Override
   public void write(FSEditLogOp op) throws IOException {
+    /**
+     * 双缓冲  EditsDoubleBuffer  内部两个缓冲
+     *
+     *                    bufCurrent     当前写日志的缓冲
+     *                    bufReady       进行flush的缓冲
+     */
     doubleBuf.writeOp(op);
   }
 
@@ -184,6 +190,9 @@ public class EditLogFileOutputStream extends EditLogOutputStream {
    */
   @Override
   public void setReadyToFlush() throws IOException {
+    /**
+     * 内部进行两个buf的交换
+     */
     doubleBuf.setReadyToFlush();
   }
 
@@ -201,6 +210,9 @@ public class EditLogFileOutputStream extends EditLogOutputStream {
       return;
     }
     preallocate(); // preallocate file if necessary
+    /**
+     *
+     */
     doubleBuf.flushTo(fp);
     if (durable && !shouldSkipFsyncForTests && !shouldSyncWritesAndSkipFsync) {
       fc.force(false); // metadata updates not needed

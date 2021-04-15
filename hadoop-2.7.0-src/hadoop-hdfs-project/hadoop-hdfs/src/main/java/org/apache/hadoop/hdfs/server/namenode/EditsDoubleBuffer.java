@@ -50,6 +50,9 @@ public class EditsDoubleBuffer {
   }
     
   public void writeOp(FSEditLogOp op) throws IOException {
+    /**
+     * 先写到bufCurrent缓冲中
+     */
     bufCurrent.writeOp(op);
   }
 
@@ -83,6 +86,9 @@ public class EditsDoubleBuffer {
    * and resets it. Does not swap any buffers.
    */
   public void flushTo(OutputStream out) throws IOException {
+    /**
+     * 将数据写到磁盘
+     */
     bufReady.writeTo(out); // write data to file
     bufReady.reset(); // erase all data in the buffer
   }

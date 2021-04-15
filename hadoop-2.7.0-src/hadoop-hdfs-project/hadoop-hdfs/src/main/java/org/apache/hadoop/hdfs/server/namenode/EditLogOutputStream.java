@@ -104,12 +104,18 @@ public abstract class EditLogOutputStream implements Closeable {
    * Collect sync metrics.
    */
   public void flush() throws IOException {
+    /**
+     *
+     */
     flush(true);
   }
   
   public void flush(boolean durable) throws IOException {
     numSync++;
     long start = monotonicNow();
+    /**
+     *
+     */
     flushAndSync(durable);
     long end = monotonicNow();
     totalTimeSync += (end - start);

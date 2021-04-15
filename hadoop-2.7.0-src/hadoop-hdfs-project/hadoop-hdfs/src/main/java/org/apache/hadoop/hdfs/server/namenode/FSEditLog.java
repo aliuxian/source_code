@@ -269,16 +269,34 @@ public class FSEditLog implements LogsPurgeable {
     synchronized(journalSetLock) {
       journalSet = new JournalSet(minimumRedundantJournals);
 
+      /**
+       * core-site.xml   hdfs-site.xml
+       *
+       * namenode的元数据要存到哪儿？
+       * HA -> journalNode
+       */
       for (URI u : dirs) {
         boolean required = FSNamesystem.getRequiredNamespaceEditsDirs(conf)
             .contains(u);
         if (u.getScheme().equals(NNStorage.LOCAL_URI_SCHEME)) {
           StorageDirectory sd = storage.getStorageDirectory(u);
           if (sd != null) {
+            /**
+             * 本地路径
+             * dfs.namenode.edits.dir
+             *
+             * FileJournalManager
+             */
             journalSet.add(new FileJournalManager(conf, sd, storage),
                 required, sharedEditsDirs.contains(u));
           }
         } else {
+          /**
+           * journalNode
+           * dfs.namenode.shared.edits.dir
+           *
+           * 反射创建：QuorumJournalManager
+           */
           journalSet.add(createJournal(u), required,
               sharedEditsDirs.contains(u));
         }
@@ -414,24 +432,43 @@ public class FSEditLog implements LogsPurgeable {
    * store yet.
    */
   void logEdit(final FSEditLogOp op) {
+
+    /**
+     * 保证全局唯一的txid
+     */
     synchronized (this) {
       assert isOpenForWrite() :
         "bad state: " + state;
       
       // wait if an automatic sync is scheduled
+      /**
+       * 一开始进来不需要等待
+       */
       waitIfAutoSyncScheduled();
-      
+
+      // 更新txid
       long start = beginTransaction();
+
       op.setTransactionId(txid);
 
       try {
+        /**
+         * 写到内存缓冲
+         *
+         * 一方面写到针对本地磁盘的缓冲区     FileJournalManager     EditLogFileOutputStream
+         * 一方面写到journalNode的缓冲区   QuorumJournalManager    JournalSetOutputStream
+         */
         editLogStream.write(op);
+
       } catch (IOException ex) {
         // All journals failed, it is handled in logSync.
       } finally {
         op.reset();
       }
 
+      /**
+       *
+       */
       endTransaction(start);
       
       // check if it is time to schedule an automatic sync
@@ -440,7 +477,10 @@ public class FSEditLog implements LogsPurgeable {
       }
       isAutoSyncScheduled = true;
     }
-    
+
+    /**
+     * 刷写到磁盘
+     */
     // sync buffered edit log entries to persistent store
     logSync();
   }
@@ -484,6 +524,7 @@ public class FSEditLog implements LogsPurgeable {
 
     //
     // record the transactionId when new data was written to the edits log
+    // 创建每一个线程关于日志的事物id
     //
     TransactionId id = myTransactionId.get();
     id.txid = txid;
@@ -585,12 +626,17 @@ public class FSEditLog implements LogsPurgeable {
     boolean sync = false;
     try {
       EditLogOutputStream logStream = null;
+
       synchronized (this) {
         try {
           printStatistics(false);
 
           // if somebody is already syncing, then wait
+          /**
+           * 当前线程的txid比已经flush的synctxid大，说明是新的，需要进行flush，然后看第二个条件
+           */
           while (mytxid > synctxid && isSyncRunning) {
+            // 其他线程已经在flush了
             try {
               wait(1000);
             } catch (InterruptedException ie) {
@@ -601,6 +647,7 @@ public class FSEditLog implements LogsPurgeable {
           // If this transaction was already flushed, then nothing to do
           //
           if (mytxid <= synctxid) {
+            // 当前的txid比正在flush的最大id还小，那么当前线程啥也不用做 了，可以直接返回
             numTransactionsBatchedInSync++;
             if (metrics != null) {
               // Metrics is non-null only when used inside name node
@@ -619,6 +666,13 @@ public class FSEditLog implements LogsPurgeable {
             if (journalSet.isEmpty()) {
               throw new IOException("No journals available to flush");
             }
+            /**
+             * 交换内存缓冲区
+             *
+             * editLogStream  内部包装了两种流：
+             *                写本地磁盘
+             *                写journalNode
+             */
             editLogStream.setReadyToFlush();
           } catch (IOException e) {
             final String msg =
@@ -632,18 +686,22 @@ public class FSEditLog implements LogsPurgeable {
             terminate(1, msg);
           }
         } finally {
-          // Prevent RuntimeException from blocking other log edit write 
+          // Prevent RuntimeException from blocking other log edit write
+          // 唤醒等待线程
           doneWithAutoSyncScheduling();
         }
         //editLogStream may become null,
         //so store a local variable for flush.
         logStream = editLogStream;
-      }
+      } // 释放锁
       
       // do the sync
       long start = monotonicNow();
       try {
         if (logStream != null) {
+          /**
+           * flush到磁盘
+           */
           logStream.flush();
         }
       } catch (IOException ex) {
@@ -658,6 +716,7 @@ public class FSEditLog implements LogsPurgeable {
           terminate(1, msg);
         }
       }
+
       long elapsed = monotonicNow() - start;
   
       if (metrics != null) { // Metrics non-null only when used inside name node
@@ -665,6 +724,7 @@ public class FSEditLog implements LogsPurgeable {
       }
       
     } finally {
+      // 恢复标志位，唤醒等待线程
       // Prevent RuntimeException from blocking other log edit sync 
       synchronized (this) {
         if (sync) {
@@ -797,7 +857,10 @@ public class FSEditLog implements LogsPurgeable {
    */
   public void logMkDir(String path, INode newNode) {
     PermissionStatus permissions = newNode.getPermissionStatus();
-    MkdirOp op = MkdirOp.getInstance(cache.get())
+    /**
+     * 创建日志对象   建造者模式
+     */
+      MkdirOp op = MkdirOp.getInstance(cache.get())
       .setInodeId(newNode.getId())
       .setPath(path)
       .setTimestamp(newNode.getModificationTime())
@@ -812,6 +875,10 @@ public class FSEditLog implements LogsPurgeable {
     if (x != null) {
       op.setXAttrs(x.getXAttrs());
     }
+
+    /**
+     * 记录日志
+     */
     logEdit(op);
   }
   
@@ -1230,6 +1297,9 @@ public class FSEditLog implements LogsPurgeable {
     storage.attemptRestoreRemovedStorage();
     
     try {
+      /**
+       * 返回： JournalSetOutputStream  包装了两个流
+       */
       editLogStream = journalSet.startLogSegment(segmentTxId,
           NameNodeLayoutVersion.CURRENT_LAYOUT_VERSION);
     } catch (IOException ex) {
@@ -1622,6 +1692,7 @@ public class FSEditLog implements LogsPurgeable {
    * @throws IllegalArgumentException if no class is configured for uri
    */
   private JournalManager createJournal(URI uri) {
+
     Class<? extends JournalManager> clazz
       = getJournalClass(conf, uri.getScheme());
 
@@ -1630,6 +1701,7 @@ public class FSEditLog implements LogsPurgeable {
         = clazz.getConstructor(Configuration.class, URI.class,
             NamespaceInfo.class);
       return cons.newInstance(conf, uri, storage.getNamespaceInfo());
+
     } catch (Exception e) {
       throw new IllegalArgumentException("Unable to construct journal, "
                                          + uri, e);

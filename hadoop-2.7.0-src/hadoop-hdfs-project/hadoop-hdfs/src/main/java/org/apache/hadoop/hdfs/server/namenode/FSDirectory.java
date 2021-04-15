@@ -100,6 +100,7 @@ import static org.apache.hadoop.util.Time.now;
 @InterfaceAudience.Private
 public class FSDirectory implements Closeable {
   static final Logger LOG = LoggerFactory.getLogger(FSDirectory.class);
+
   private static INodeDirectory createRoot(FSNamesystem namesystem) {
     final INodeDirectory r = new INodeDirectory(
         INodeId.ROOT_INODE_ID,
@@ -129,6 +130,9 @@ public class FSDirectory implements Closeable {
   public final static byte[] DOT_INODES = 
       DFSUtil.string2Bytes(DOT_INODES_STRING);
 
+  /**
+   * 根目录
+   */
   INodeDirectory rootDir;
   private final FSNamesystem namesystem;
   private volatile boolean skipQuotaCheck = false; //skip while consuming edits
@@ -218,8 +222,10 @@ public class FSDirectory implements Closeable {
   FSDirectory(FSNamesystem ns, Configuration conf) throws IOException {
     this.dirLock = new ReentrantReadWriteLock(true); // fair
     this.inodeId = new INodeId();
+
     rootDir = createRoot(ns);
     inodeMap = INodeMap.newInstance(rootDir);
+
     this.isPermissionEnabled = conf.getBoolean(
       DFSConfigKeys.DFS_PERMISSIONS_ENABLED_KEY,
       DFSConfigKeys.DFS_PERMISSIONS_ENABLED_DEFAULT);
@@ -969,6 +975,9 @@ public class FSDirectory implements Closeable {
               + "existing file or directory to another name before upgrading "
               + "to the new release.");
     }
+    /**
+     * 获取父目录
+     */
     final INodeDirectory parent = existing.getINode(pos - 1).asDirectory();
     // The filesystem limits are not really quotas, so this check may appear
     // odd. It's because a rename operation deletes the src, tries to add
@@ -976,6 +985,9 @@ public class FSDirectory implements Closeable {
     // The rename code disables the quota when it's restoring to the
     // original location because a quota violation would cause the the item
     // to go "poof".  The fs limits must be bypassed for the same reason.
+    /**
+     * 检查qouta
+     */
     if (checkQuota) {
       final String parentPath = existing.getPath(pos - 1);
       verifyMaxComponentLength(inode.getLocalNameBytes(), parentPath);
@@ -991,7 +1003,7 @@ public class FSDirectory implements Closeable {
     boolean added;
     try {
       /**
-       *
+       * 在父目录下添加一个INode
        */
       added = parent.addChild(inode, true, existing.getLatestSnapshotId());
     } catch (QuotaExceededException e) {
@@ -1733,6 +1745,7 @@ public class FSDirectory implements Closeable {
       throws FileNotFoundException, ParentNotDirectoryException {
     Path parent = new Path(src).getParent();
     if (parent != null) {
+      // 获取父INode
       final INode parentNode = iip.getINode(-2);
       if (parentNode == null) {
         throw new FileNotFoundException("Parent directory doesn't exist: "

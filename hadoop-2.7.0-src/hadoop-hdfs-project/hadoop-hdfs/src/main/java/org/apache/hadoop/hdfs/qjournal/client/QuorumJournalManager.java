@@ -402,6 +402,9 @@ public class QuorumJournalManager implements JournalManager {
         layoutVersion);
     loggers.waitForWriteQuorum(q, startSegmentTimeoutMs,
         "startLogSegment(" + txId + ")");
+    /**
+     *
+     */
     return new QuorumOutputStream(loggers, txId,
         outputBufferCapacity, writeTxnsTimeoutMs);
   }

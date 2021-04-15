@@ -220,11 +220,17 @@ public class GetJournalEditServlet extends HttpServlet {
         editFile = elf.getFile();
         ImageServlet.setVerificationHeadersForGet(response, editFile);
         ImageServlet.setFileNameHeaders(response, editFile);
+        /***
+         * 读取本地磁盘的editLog
+         */
         editFileIn = new FileInputStream(editFile);
       }
       
       DataTransferThrottler throttler = ImageServlet.getThrottler(conf);
 
+      /**
+       * 将数据的输入流直接写到输出流 => response.getOutputStream()
+       */
       // send edits
       TransferFsImage.copyFileToStream(response.getOutputStream(), editFile,
           editFileIn, throttler);

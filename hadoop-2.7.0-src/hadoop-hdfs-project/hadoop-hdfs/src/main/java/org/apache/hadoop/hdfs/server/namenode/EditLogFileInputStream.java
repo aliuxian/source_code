@@ -118,6 +118,9 @@ public class EditLogFileInputStream extends EditLogInputStream {
   public static EditLogInputStream fromUrl(
       URLConnectionFactory connectionFactory, URL url, long startTxId,
       long endTxId, boolean inProgress) {
+    /**
+     *
+     */
     return new EditLogFileInputStream(new URLLog(connectionFactory, url),
         startTxId, endTxId, inProgress);
   }
@@ -138,6 +141,9 @@ public class EditLogFileInputStream extends EditLogInputStream {
     Preconditions.checkState(state == State.UNINIT);
     BufferedInputStream bin = null;
     try {
+      /**
+       *  log  ==>   URLLog   ==>  connection
+       */
       fStream = log.getInputStream();
       bin = new BufferedInputStream(fStream);
       tracker = new FSEditLogLoader.PositionTrackingInputStream(bin);
@@ -158,8 +164,14 @@ public class EditLogFileInputStream extends EditLogInputStream {
               "flags from log");
         }
       }
+      /**
+       * 装饰模式
+       */
       reader = new FSEditLogOp.Reader(dataIn, tracker, logVersion);
       reader.setMaxOpSize(maxOpSize);
+      /**
+       * 更新状态
+       */
       state = State.OPEN;
     } finally {
       if (reader == null) {
@@ -186,9 +198,14 @@ public class EditLogFileInputStream extends EditLogInputStream {
 
   private FSEditLogOp nextOpImpl(boolean skipBrokenEdits) throws IOException {
     FSEditLogOp op = null;
+
+    // state  初始值就是 UNINIT
     switch (state) {
     case UNINIT:
       try {
+        /**
+         *
+         */
         init(true);
       } catch (Throwable e) {
         LOG.error("caught exception initializing " + this, e);
@@ -200,6 +217,9 @@ public class EditLogFileInputStream extends EditLogInputStream {
       Preconditions.checkState(state != State.UNINIT);
       return nextOpImpl(skipBrokenEdits);
     case OPEN:
+      /**
+       * UNINIT完成后会修改state为OPEN
+       */
       op = reader.readOp(skipBrokenEdits);
       if ((op != null) && (op.hasTransactionId())) {
         long txId = op.getTransactionId();
@@ -458,6 +478,9 @@ public class EditLogFileInputStream extends EditLogInputStream {
             public InputStream run() throws IOException {
               HttpURLConnection connection;
               try {
+                /**
+                 * 获取一个流
+                 */
                 connection = (HttpURLConnection)
                     connectionFactory.openConnection(url, isSpnegoEnabled);
               } catch (AuthenticationException e) {
@@ -483,7 +506,10 @@ public class EditLogFileInputStream extends EditLogInputStream {
                 throw new IOException(CONTENT_LENGTH + " header is not provided " +
                                       "by the server when trying to fetch " + url);
               }
-        
+
+              /**
+               * 获取输入流
+               */
               return connection.getInputStream();
             }
           });

@@ -85,6 +85,9 @@ public class JournalNode implements Tool, Configurable, JournalNodeMXBean {
     
     Journal journal = journalsById.get(jid);
     if (journal == null) {
+      /**
+       *
+       */
       File logDir = getLogDir(jid);
       LOG.info("Initializing journal in directory " + logDir);      
       journal = new Journal(conf, logDir, jid, startOpt, new ErrorReporter());

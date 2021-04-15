@@ -3892,18 +3892,30 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       boolean createParent) throws IOException {
     HdfsFileStatus auditStat = null;
     checkOperation(OperationCategory.WRITE);
+
+    // 获取写锁
     writeLock();
     try {
       checkOperation(OperationCategory.WRITE);
       checkNameNodeSafeMode("Cannot create directory " + src);
+      /**
+       *
+       */
       auditStat = FSDirMkdirOp.mkdirs(this, src, permissions, createParent);
+
+
     } catch (AccessControlException e) {
       logAuditEvent(false, "mkdirs", src);
       throw e;
     } finally {
       writeUnlock();
     }
+
+    /**
+     *
+     */
     getEditLog().logSync();
+
     logAuditEvent(true, "mkdirs", src, null, auditStat);
     return true;
   }
@@ -4563,11 +4575,14 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       StorageReport[] reports, long cacheCapacity, long cacheUsed,
       int xceiverCount, int xmitsInProgress, int failedVolumes,
       VolumeFailureSummary volumeFailureSummary) throws IOException {
+
     readLock();
     try {
       //get datanode commands
       final int maxTransfer = blockManager.getMaxReplicationStreams()
           - xmitsInProgress;
+
+      //
       DatanodeCommand[] cmds = blockManager.getDatanodeManager().handleHeartbeat(
           nodeReg, reports, blockPoolId, cacheCapacity, cacheUsed,
           xceiverCount, maxTransfer, failedVolumes, volumeFailureSummary);
@@ -4577,6 +4592,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
           haContext.getState().getServiceState(),
           getFSImage().getLastAppliedOrWrittenTxId());
 
+      // 响应
       return new HeartbeatResponse(cmds, haState, rollingUpgradeInfo);
     } finally {
       readUnlock();

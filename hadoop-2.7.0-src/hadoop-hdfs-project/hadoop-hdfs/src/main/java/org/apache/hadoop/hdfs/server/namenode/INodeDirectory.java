@@ -567,10 +567,11 @@ public class INodeDirectory extends INodeWithAdditionalFields
     if (children == null) {
       children = new ArrayList<INode>(DEFAULT_FILES_PER_DIRECTORY);
     }
+
+    node.setParent(this);
     /**
      * 子节点列表中添加一个node
      */
-    node.setParent(this);
     children.add(-insertionPoint - 1, node);
 
     if (node.getGroupName() == null) {

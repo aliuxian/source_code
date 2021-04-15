@@ -252,12 +252,20 @@ class AsyncLoggerSet {
   
   public QuorumCall<AsyncLogger, Void> sendEdits(
       long segmentTxId, long firstTxnId, int numTxns, byte[] data) {
+
     Map<AsyncLogger, ListenableFuture<Void>> calls = Maps.newHashMap();
+
+    /**
+     * 每一个AsyncLogger代表一个journalNode节点
+     */
     for (AsyncLogger logger : loggers) {
-      ListenableFuture<Void> future = 
+      ListenableFuture<Void> future =
+              // 异步发送
         logger.sendEdits(segmentTxId, firstTxnId, numTxns, data);
+      //
       calls.put(logger, future);
     }
+
     return QuorumCall.create(calls);
   }
 

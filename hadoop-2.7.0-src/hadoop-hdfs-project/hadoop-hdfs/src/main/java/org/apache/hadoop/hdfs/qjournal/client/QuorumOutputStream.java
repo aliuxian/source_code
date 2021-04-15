@@ -46,6 +46,12 @@ class QuorumOutputStream extends EditLogOutputStream {
 
   @Override
   public void write(FSEditLogOp op) throws IOException {
+    /**
+     * 双缓冲：
+     * EditsDoubleBuffer：
+     *        bufCurrent
+     *        bufReady
+     */
     buf.writeOp(op);
   }
 
@@ -101,9 +107,12 @@ class QuorumOutputStream extends EditLogOutputStream {
       byte[] data = bufToSend.getData();
       assert data.length == bufToSend.getLength();
 
+      // 将日志写到journalNode
       QuorumCall<AsyncLogger, Void> qcall = loggers.sendEdits(
           segmentTxId, firstTxToFlush,
           numReadyTxns, data);
+
+      // 等待结果
       loggers.waitForWriteQuorum(qcall, writeTimeoutMs, "sendEdits");
       
       // Since we successfully wrote this batch, let the loggers know. Any future

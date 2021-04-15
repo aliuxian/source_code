@@ -104,6 +104,10 @@ public class JournalSet implements JournalManager {
     public void startLogSegment(long txId, int layoutVersion) throws IOException {
       Preconditions.checkState(stream == null);
       disabled = false;
+      /**
+       * QuorumJournalManager    =>    QuorumOutputStream
+       * FileJournalManager      =>    EditLogFileOutputStream
+       */
       stream = journal.startLogSegment(txId, layoutVersion);
     }
 
@@ -216,12 +220,22 @@ public class JournalSet implements JournalManager {
   @Override
   public EditLogOutputStream startLogSegment(final long txId,
       final int layoutVersion) throws IOException {
+
     mapJournalsAndReportErrors(new JournalClosure() {
+      /**
+       * mapJournalsAndReportErrors  内部遍历 journals
+       * 两种：
+       * FileJournalManager
+       * QuorumJournalManager
+       *
+       * 然后就会调用这里的apply
+       */
       @Override
       public void apply(JournalAndStream jas) throws IOException {
         jas.startLogSegment(txId, layoutVersion);
       }
     }, "starting log segment " + txId);
+
     return new JournalSetOutputStream();
   }
   
@@ -388,8 +402,17 @@ public class JournalSet implements JournalManager {
       JournalClosure closure, String status) throws IOException{
 
     List<JournalAndStream> badJAS = Lists.newLinkedList();
+    /**
+     * journals里面是啥？
+     *
+     * FileJournalManager
+     * QuorumJournalManager
+     */
     for (JournalAndStream jas : journals) {
       try {
+        /**
+         *
+         */
         closure.apply(jas);
       } catch (Throwable t) {
         if (jas.isRequired()) {
@@ -445,10 +468,23 @@ public class JournalSet implements JournalManager {
     @Override
     public void write(final FSEditLogOp op)
         throws IOException {
+
+      /**
+       *
+       */
       mapJournalsAndReportErrors(new JournalClosure() {
+
+        /**
+         * mapJournalsAndReportErrors 内部 遍历 journals
+         * 然后调用这个apply
+         */
         @Override
         public void apply(JournalAndStream jas) throws IOException {
           if (jas.isActive()) {
+            /**
+             * FileJournalManager   ->    EditLogFileOutputStream
+             * QuorumJournalManager  ->    QuorumOutputStream
+             */
             jas.getCurrentStream().write(op);
           }
         }
@@ -502,10 +538,23 @@ public class JournalSet implements JournalManager {
 
     @Override
     public void setReadyToFlush() throws IOException {
+
+      /**
+       * mapJournalsAndReportErrors  内部遍历 journals 两种
+       */
       mapJournalsAndReportErrors(new JournalClosure() {
+
+        /**
+         * 然后调用这个apply方法
+         */
         @Override
         public void apply(JournalAndStream jas) throws IOException {
           if (jas.isActive()) {
+            /**
+             * 进行flush：
+             *      本地磁盘
+             *      journalNode
+             */
             jas.getCurrentStream().setReadyToFlush();
           }
         }
@@ -588,6 +637,9 @@ public class JournalSet implements JournalManager {
   }
   
   void add(JournalManager j, boolean required, boolean shared) {
+    /**
+     * 封装
+     */
     JournalAndStream jas = new JournalAndStream(j, required, shared);
     journals.add(jas);
   }

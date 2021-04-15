@@ -55,12 +55,18 @@ import com.google.common.base.Preconditions;
  * EditLogTailer represents a thread which periodically reads from edits
  * journals and applies the transactions contained within to a given
  * FSNamesystem.
+ *
+ *
+ * 后台线程，周期性去journalNode读取元数据，然后加载到自己的内存中
  */
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
 public class EditLogTailer {
   public static final Log LOG = LogFactory.getLog(EditLogTailer.class);
-  
+
+  /**
+   *
+   */
   private final EditLogTailerThread tailerThread;
   
   private final Configuration conf;
@@ -229,6 +235,9 @@ public class EditLogTailer {
       // disk are ignored.
       long editsLoaded = 0;
       try {
+        /**
+         * 加载日志
+         */
         editsLoaded = image.loadEdits(streams, namesystem);
       } catch (EditLogInputException elie) {
         editsLoaded = elie.getNumEditsLoaded();
@@ -328,6 +337,9 @@ public class EditLogTailer {
           // state updates.
           namesystem.cpLockInterruptibly();
           try {
+            /**
+             *
+             */
             doTailEdits();
           } finally {
             namesystem.cpUnlock();

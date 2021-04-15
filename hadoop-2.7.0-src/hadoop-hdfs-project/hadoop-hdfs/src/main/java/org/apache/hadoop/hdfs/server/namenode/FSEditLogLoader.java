@@ -140,8 +140,13 @@ public class FSEditLogLoader {
     try {
       long startTime = monotonicNow();
       FSImage.LOG.info("Start loading edits file " + edits.getName());
+
+      /**
+       *
+       */
       long numEdits = loadEditRecords(edits, false, expectedStartingTxId,
           startOpt, recovery);
+
       FSImage.LOG.info("Edits file " + edits.getName() 
           + " of size " + edits.length() + " edits # " + numEdits 
           + " loaded in " + (monotonicNow()-startTime)/1000 + " seconds");
@@ -185,8 +190,14 @@ public class FSEditLogLoader {
     try {
       while (true) {
         try {
+          /**
+           * 封装一条日志
+           */
           FSEditLogOp op;
           try {
+            /**
+             * 读取
+             */
             op = in.readOp();
             if (op == null) {
               break;
@@ -208,6 +219,7 @@ public class FSEditLogLoader {
             in.resync();
             continue;
           }
+
           recentOpcodeOffsets[(int)(numEdits % recentOpcodeOffsets.length)] =
             in.getPosition();
           if (op.hasTransactionId()) {
@@ -231,6 +243,9 @@ public class FSEditLogLoader {
               LOG.trace("op=" + op + ", startOpt=" + startOpt
                   + ", numEdits=" + numEdits + ", totalEdits=" + totalEdits);
             }
+            /**
+             * 将日志加载到内存中
+             */
             long inodeId = applyEditLogOp(op, fsDir, startOpt,
                 in.getVersion(true), lastInodeId);
             if (lastInodeId < inodeId) {
@@ -566,9 +581,15 @@ public class FSEditLogLoader {
       break;
     }
     case OP_MKDIR: {
+      /**
+       *
+       */
       MkdirOp mkdirOp = (MkdirOp)op;
+
       inodeId = getAndUpdateLastInodeId(mkdirOp.inodeId, logVersion,
           lastInodeId);
+
+      // 更新到自己的目录中
       FSDirMkdirOp.mkdirForEditLog(fsDir, inodeId,
           renameReservedPathsOnUpgrade(mkdirOp.path, logVersion),
           mkdirOp.permissions, mkdirOp.aclEntries, mkdirOp.timestamp);

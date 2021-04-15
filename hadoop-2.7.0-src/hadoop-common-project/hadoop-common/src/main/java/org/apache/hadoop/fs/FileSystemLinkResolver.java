@@ -78,6 +78,9 @@ public abstract class FileSystemLinkResolver<T> {
     FileSystem fs = filesys;
     for (boolean isLink = true; isLink;) {
       try {
+        /**
+         *
+         */
         in = doCall(p);
         isLink = false;
       } catch (UnresolvedLinkException e) {

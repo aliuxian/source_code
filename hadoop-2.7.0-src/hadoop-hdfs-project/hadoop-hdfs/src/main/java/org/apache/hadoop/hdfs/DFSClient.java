@@ -2997,6 +2997,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     if (permission == null) {
       permission = FsPermission.getDefault();
     }
+
     FsPermission masked = permission.applyUMask(dfsClientConf.uMask);
     return primitiveMkdir(src, masked, createParent);
   }
@@ -3028,6 +3029,9 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     }
     TraceScope scope = Trace.startSpan("mkdir", traceSampler);
     try {
+      /**
+       *
+       */
       return namenode.mkdirs(src, absPermission, createParent);
     } catch(RemoteException re) {
       throw re.unwrapRemoteException(AccessControlException.class,

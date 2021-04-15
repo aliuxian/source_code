@@ -603,6 +603,11 @@ class BPServiceActor implements Runnable {
         .getVolumeFailureSummary();
     int numFailedVolumes = volumeFailureSummary != null ?
         volumeFailureSummary.getFailedStorageLocations().length : 0;
+
+    /**
+     * NameNode RPC代理
+     * 发送心跳同时也会汇报自己的情况，
+     */
     return bpNamenode.sendHeartbeat(bpRegistration,
         reports,
         dn.getFSDataset().getCacheCapacity(),
@@ -703,7 +708,12 @@ class BPServiceActor implements Runnable {
           lastHeartbeat = startTime;
           if (!dn.areHeartbeatsDisabledForTests()) {
             // 发送心跳
+            /**
+             * NameNode接收到心跳之后，会返回一些指令，DataNode根据这些指令做相应的操作
+             * NameNode不会主动与DataNode通信，都是通过心跳响应来发送指令的
+             */
             HeartbeatResponse resp = sendHeartBeat();
+
             assert resp != null;
             dn.getMetrics().addHeartbeat(monotonicNow() - startTime);
 
@@ -877,6 +887,9 @@ class BPServiceActor implements Runnable {
 
       while (shouldRun()) {
         try {
+          /**
+           *
+           */
           offerService();
         } catch (Exception ex) {
           LOG.error("Exception in BPOfferService for " + this, ex);
