@@ -123,19 +123,27 @@ public class INodesInPath {
       throws UnresolvedLinkException {
     Preconditions.checkArgument(startingDir.compareTo(components[0]) == 0);
 
+    //  ==>  / 根目录
     INode curNode = startingDir;
     int count = 0;
     int inodeNum = 0;
+
     INode[] inodes = new INode[components.length];
+
     boolean isSnapshot = false;
     int snapshotId = CURRENT_STATE_ID;
 
     while (count < components.length && curNode != null) {
       final boolean lastComp = (count == components.length - 1);
+
       inodes[inodeNum++] = curNode;
+
       final boolean isRef = curNode.isReference();
       final boolean isDir = curNode.isDirectory();
+
+      // 是一个目录
       final INodeDirectory dir = isDir? curNode.asDirectory(): null;
+
       if (!isRef && isDir && dir.isWithSnapshot()) {
         //if the path is a non-snapshot path, update the latest snapshot.
         if (!isSnapshot && shouldUpdateLatestId(
@@ -144,6 +152,7 @@ public class INodesInPath {
           snapshotId = dir.getDirectoryWithSnapshotFeature().getLastSnapshotId();
         }
       } else if (isRef && isDir && !lastComp) {
+        // 不是最后一个INode
         // If the curNode is a reference node, need to check its dstSnapshot:
         // 1. if the existing snapshot is no later than the dstSnapshot (which
         // is the latest snapshot in dst before the rename), the changes 
@@ -169,6 +178,7 @@ public class INodesInPath {
           }
         }
       }
+
       if (curNode.isSymlink() && (!lastComp || resolveLink)) {
         final String path = constructPath(components, 0, components.length);
         final String preceding = constructPath(components, 0, count);
@@ -187,6 +197,7 @@ public class INodesInPath {
       if (lastComp || !isDir) {
         break;
       }
+
       final byte[] childName = components[count + 1];
       
       // check if the next byte[] in components is for ".snapshot"

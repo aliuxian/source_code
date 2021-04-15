@@ -1644,9 +1644,12 @@ public class FSDirectory implements Closeable {
    */
   INodesInPath getINodesInPath4Write(String src, boolean resolveLink)
           throws UnresolvedLinkException, SnapshotAccessControlException {
+
     final byte[][] components = INode.getPathComponents(src);
+
     INodesInPath inodesInPath = INodesInPath.resolve(rootDir, components,
         resolveLink);
+
     if (inodesInPath.isSnapshot()) {
       throw new SnapshotAccessControlException(
               "Modification on a read-only snapshot is disallowed");

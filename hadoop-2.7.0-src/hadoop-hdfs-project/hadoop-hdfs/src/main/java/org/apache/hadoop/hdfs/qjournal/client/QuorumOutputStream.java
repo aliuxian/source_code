@@ -102,6 +102,7 @@ class QuorumOutputStream extends EditLogOutputStream {
       //    need a defensive copy to avoid accidentally mutating the buffer
       //    before it is sent.
       DataOutputBuffer bufToSend = new DataOutputBuffer(numReadyBytes);
+
       buf.flushTo(bufToSend);
       assert bufToSend.getLength() == numReadyBytes;
       byte[] data = bufToSend.getData();

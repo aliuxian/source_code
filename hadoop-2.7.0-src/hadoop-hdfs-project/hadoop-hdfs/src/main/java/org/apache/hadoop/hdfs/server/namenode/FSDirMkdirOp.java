@@ -65,7 +65,7 @@ class FSDirMkdirOp {
       src = fsd.resolvePath(pc, src, pathComponents);
 
       /**
-       * 要创建的INode数量
+       * 全部的INode包括已经存在的还有要创建的
        */
       INodesInPath iip = fsd.getINodesInPath4Write(src);
 
@@ -73,11 +73,11 @@ class FSDirMkdirOp {
         fsd.checkTraverse(pc, iip);
       }
 
-      // 找到要创建的目录的最后最后一个已经存在的目录
       /**
-       * eg:    /user/flink/checkpoint
-       *        /user/flink  已经存在
-       *        lastINode => /flink
+       * 创建的路径中的最后一个INode，
+       * 如果不为null，并且是一个文件：报错
+       * 如果不为null，并且是一个目录：直接返回
+       * 如果是null，创建INode
        */
       final INode lastINode = iip.getLastINode();
 

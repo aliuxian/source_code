@@ -3912,7 +3912,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     }
 
     /**
-     *
+     * 确保写到日志
      */
     getEditLog().logSync();
 
