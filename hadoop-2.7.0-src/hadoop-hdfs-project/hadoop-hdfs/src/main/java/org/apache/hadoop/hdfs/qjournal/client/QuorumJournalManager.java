@@ -97,6 +97,9 @@ public class QuorumJournalManager implements JournalManager {
   
   private final AsyncLoggerSet loggers;
 
+  /**
+   * 双缓冲大小
+   */
   private int outputBufferCapacity = 512 * 1024;
   private final URLConnectionFactory connectionFactory;
   
@@ -403,7 +406,7 @@ public class QuorumJournalManager implements JournalManager {
     loggers.waitForWriteQuorum(q, startSegmentTimeoutMs,
         "startLogSegment(" + txId + ")");
     /**
-     *
+     *  outputBufferCapacity  缓冲区大小
      */
     return new QuorumOutputStream(loggers, txId,
         outputBufferCapacity, writeTxnsTimeoutMs);

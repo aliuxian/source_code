@@ -443,10 +443,12 @@ public class FSEditLog implements LogsPurgeable {
       // wait if an automatic sync is scheduled
       /**
        * 一开始进来不需要等待
+       * isAutoSyncScheduled 默认是 false
+       *
        */
       waitIfAutoSyncScheduled();
 
-      // 更新txid
+      // 获取一个唯一的txid
       long start = beginTransaction();
 
       op.setTransactionId(txid);
@@ -472,14 +474,19 @@ public class FSEditLog implements LogsPurgeable {
       endTransaction(start);
       
       // check if it is time to schedule an automatic sync
+      // flush 数据的条件  shouldForceSync
+      // 缓冲区中数据大小达到512KB
       if (!shouldForceSync()) {
         return;
       }
+
+      // 达到这就是要进行flush了，修改了isAutoSyncScheduled的值，后面的线程进来就会进入上面的wait
       isAutoSyncScheduled = true;
     }
 
     /**
      * 刷写到磁盘
+     * flush之后就会将isAutoSyncScheduled的值修改为false
      */
     // sync buffered edit log entries to persistent store
     logSync();
@@ -687,7 +694,16 @@ public class FSEditLog implements LogsPurgeable {
           }
         } finally {
           // Prevent RuntimeException from blocking other log edit write
-          // 唤醒等待线程
+          /**
+           * 唤醒等待线程，就是将isAutoSyncScheduled置为false
+           *
+           * 交换完内存就会唤醒wait的线程，如果是超高并发的话，
+           * 那么可能很快缓冲区就又写满了，就又需要的flush了，
+           * 这样在超高并发的场景的下，线程就会花费很多的时间在等待，这样就会拖慢线程
+           *
+           * 所以建议将缓冲区的大小调大，使用参数来指定，不使用硬编码，但是也不能调太大，
+           * 因为断电的话还是会造成数据丢失的
+           */
           doneWithAutoSyncScheduling();
         }
         //editLogStream may become null,
@@ -705,14 +721,21 @@ public class FSEditLog implements LogsPurgeable {
           logStream.flush();
         }
       } catch (IOException ex) {
+        // jn超时
         synchronized (this) {
+
           final String msg =
               "Could not sync enough journals to persistent storage. "
               + "Unsynced transactions: " + (txid - synctxid);
+
           LOG.fatal(msg, new Exception());
+
           synchronized(journalSetLock) {
             IOUtils.cleanup(LOG, journalSet);
           }
+          /**
+           *
+           */
           terminate(1, msg);
         }
       }

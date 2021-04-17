@@ -587,6 +587,13 @@ public class JournalSet implements JournalManager {
     
     @Override
     public boolean shouldForceSync() {
+      /**
+       * journals  两种：
+       * QuorumJournalManger   QuorumOutputStream
+       * FileJournalManager    EditLogFileOutputStream
+       *
+       * 最终调用的是EditsDoubleBuffer的 shouldForceSync()方法
+       */
       for (JournalAndStream js : journals) {
         if (js.isActive() && js.getCurrentStream().shouldForceSync()) {
           return true;

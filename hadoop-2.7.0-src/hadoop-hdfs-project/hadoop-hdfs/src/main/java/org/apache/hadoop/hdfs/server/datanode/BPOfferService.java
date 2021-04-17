@@ -94,6 +94,14 @@ class BPOfferService {
    */
   private long lastActiveClaimTxId = -1;
 
+  // 读读共享
+  // 读写，写读，写写互斥
+  /**
+   * 如果读写竞争很激烈
+   *        比如 在读取 blockPoolId是要读锁，这是一个调用频率很高的方法，获取blockPoolId是通过bpNSInfo来的
+   *            如果在更新bpNSInfo的时候就给blockPoolID赋值，那么这个读锁就不需要了，这样就降低了锁的竞争
+   *        改进：定义一个blockPoolID ： 在更新bpNSInfo的时候同时就给blockPoolID赋值，那么那个读锁就没有必要了
+   */
   private final ReentrantReadWriteLock mReadWriteLock =
       new ReentrantReadWriteLock();
   private final Lock mReadLock  = mReadWriteLock.readLock();
@@ -162,7 +170,17 @@ class BPOfferService {
     return false;
   }
 
+  /**
+   * 很多地方都会调用这个方法：
+   *      eg: 获取删除块报告、发送块报告、发送心跳方法
+   * 调用频率很高
+   */
   String getBlockPoolId() {
+
+//    if (this.blockPoolID != null) {
+//      return this.blockPoolID;
+//    }
+
     readLock();
     try {
       if (bpNSInfo != null) {
@@ -181,6 +199,9 @@ class BPOfferService {
     return getNamespaceInfo() != null;
   }
 
+  /**
+   * 获取命名空间
+   */
   NamespaceInfo getNamespaceInfo() {
     readLock();
     try {
@@ -303,6 +324,7 @@ class BPOfferService {
    * verifies that this namespace matches (eg to prevent a misconfiguration
    * where a StandbyNode from a different cluster is specified)
    */
+  // 只会发生在初始化的时候，不是一个高频的操作
   void verifyAndSetNamespaceInfo(NamespaceInfo nsInfo) throws IOException {
     writeLock();
     try {
@@ -342,6 +364,7 @@ class BPOfferService {
    * NN, it calls this function to verify that the NN it connected to
    * is consistent with other NNs serving the block-pool.
    */
+  // 低频操作
   void registrationSucceeded(BPServiceActor bpServiceActor,
       DatanodeRegistration reg) throws IOException {
     writeLock();
@@ -380,6 +403,7 @@ class BPOfferService {
     }
   }
 
+  // 初始化的时候会执行这，也是一个低频操作
   DatanodeRegistration createRegistration() {
     writeLock();
     try {
@@ -395,6 +419,7 @@ class BPOfferService {
    * Called when an actor shuts down. If this is the last actor
    * to shut down, shuts down the whole blockpool in the DN.
    */
+  // shutDown  还是一个非常低频的操作
   void shutdownActor(BPServiceActor actor) {
     writeLock();
     try {
@@ -452,6 +477,9 @@ class BPOfferService {
    * @return a proxy to the active NN, or null if the BPOS has not
    * acknowledged any NN as active yet.
    */
+  /**
+   * 获取主NameNode
+   */
   DatanodeProtocolClientSideTranslatorPB getActiveNN() {
     readLock();
     try {
@@ -492,6 +520,7 @@ class BPOfferService {
    * @param actor the actor which received the heartbeat
    * @param nnHaState the HA-related heartbeat contents
    */
+  // 主备切换的时候，并不是高频操作
   void updateActorStatesFromHeartbeat(
       BPServiceActor actor,
       NNHAStatusHeartbeat nnHaState) {
@@ -587,6 +616,12 @@ class BPOfferService {
     }
   }
 
+  /**
+   * 处理NameNode返回的指令
+   * 是一个周期性的操作，每3秒执行一次，频率还是挺高的
+   *
+   * 在特殊情况下，会耗时很长，比如进行负载均衡，大量block的复制
+   */
   boolean processCommandFromActor(DatanodeCommand cmd,
       BPServiceActor actor) throws IOException {
     assert bpServices.contains(actor);

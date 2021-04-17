@@ -130,6 +130,13 @@ public final class ExitUtil {
       }
       throw ee;
     }
+    /**
+     * 程序退出  =>  NameNode
+     * 正常情况下是不会有问题的
+     *
+     * 但是：可能在等待JN结果的时候发生了FullGC，花费了很多时间，那么直接退出，是不合适的
+     *
+     */
     System.exit(status);
   }
 

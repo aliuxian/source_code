@@ -43,6 +43,7 @@ public class EditsDoubleBuffer {
   private final int initBufferSize;
 
   public EditsDoubleBuffer(int defaultBufferSize) {
+    // 512KB
     initBufferSize = defaultBufferSize;
     bufCurrent = new TxnBuffer(initBufferSize);
     bufReady = new TxnBuffer(initBufferSize);
@@ -94,6 +95,9 @@ public class EditsDoubleBuffer {
   }
   
   public boolean shouldForceSync() {
+    /**
+     * 交换内存的条件  initBufferSize  512KB
+     */
     return bufCurrent.size() >= initBufferSize;
   }
 
