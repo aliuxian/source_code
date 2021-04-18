@@ -1330,6 +1330,8 @@ public class Driver implements CommandProcessor {
   }
 
   private static final ReentrantLock globalCompileLock = new ReentrantLock();
+
+
   private int compileInternal(String command, boolean deferClose) {
     int ret;
 

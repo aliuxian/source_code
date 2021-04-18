@@ -11212,6 +11212,7 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
     }
 
     /**
+     * 推导结果集模式
      * 成本优化（CBO），选择最优的Join顺序
      */
     // 3. Deduce Resultset Schema
@@ -11254,6 +11255,9 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
       }
       
       if (!ctx.isCboSucceeded()) {
+        /**
+         *
+         */
         saveViewDefinition();
       }
 
@@ -11329,10 +11333,9 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
     }
 
     /**
-     * 列裁剪
+     * 生成列的访问信息，
      */
-    // 8. Generate column access stats if required - wait until column pruning
-    // takes place during optimization
+    // 8. Generate column access stats if required - wait until column pruning takes place during optimization
     boolean isColumnInfoNeedForAuth = SessionState.get().isAuthorizationModeV2()
         && HiveConf.getBoolVar(conf, HiveConf.ConfVars.HIVE_AUTHORIZATION_ENABLED);
     if (isColumnInfoNeedForAuth
