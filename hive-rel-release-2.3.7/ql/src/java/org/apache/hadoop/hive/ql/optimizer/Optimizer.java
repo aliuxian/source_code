@@ -66,6 +66,7 @@ public class Optimizer {
     boolean isSparkExecEngine = HiveConf.getVar(hiveConf, HiveConf.ConfVars.HIVE_EXECUTION_ENGINE).equals("spark");
     boolean bucketMapJoinOptimizer = false;
 
+    // 里面装了各种各种的优化器
     transformations = new ArrayList<Transform>();
 
     // Add the additional postprocessing transformations needed if
@@ -101,6 +102,10 @@ public class Optimizer {
         transformations.add(new ConstantPropagate());
       }
       transformations.add(new SyntheticJoinPredicate());
+      /**
+       * 谓词下推
+       * PPD
+       */
       transformations.add(new PredicatePushDown());
     } else if (HiveConf.getBoolVar(hiveConf, HiveConf.ConfVars.HIVEOPTPPD) &&
             pctx.getContext().isCboSucceeded()) {
@@ -126,6 +131,9 @@ public class Optimizer {
     transformations.add(new SortedDynPartitionTimeGranularityOptimizer());
 
     if (HiveConf.getBoolVar(hiveConf, HiveConf.ConfVars.HIVEOPTPPD)) {
+      /**
+       * 分区裁剪
+       */
       transformations.add(new PartitionPruner());
       transformations.add(new PartitionConditionRemover());
       if (HiveConf.getBoolVar(hiveConf, HiveConf.ConfVars.HIVEOPTLISTBUCKETING)) {
@@ -143,9 +151,15 @@ public class Optimizer {
         HiveConf.getBoolVar(hiveConf, HiveConf.ConfVars.HIVE_MAP_GROUPBY_SORT)) {
       transformations.add(new GroupByOptimizer());
     }
+    /**
+     * 列裁剪
+     */
     transformations.add(new ColumnPruner());
     if (HiveConf.getBoolVar(hiveConf, HiveConf.ConfVars.HIVE_OPTIMIZE_SKEWJOIN_COMPILETIME)) {
       if (!isTezExecEngine) {
+        /**
+         * Join 数据倾斜的优化
+         */
         transformations.add(new SkewJoinOptimizer());
       } else {
         LOG.warn("Skew join is currently not supported in tez! Disabling the skew join optimization.");
@@ -245,8 +259,14 @@ public class Optimizer {
    * @throws SemanticException
    */
   public ParseContext optimize() throws SemanticException {
+    /**
+     * 遍历每一个Opetimizer
+     */
     for (Transform t : transformations) {
       t.beginPerfLogging();
+      /**
+       *
+       */
       pctx = t.transform(pctx);
       t.endPerfLogging(t.toString());
     }

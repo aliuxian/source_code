@@ -97,6 +97,9 @@ public class TaskRunner extends Thread {
   public void runSequential() {
     int exitVal = -101;
     try {
+      /**
+       * exitVal 状态返回值
+       */
       exitVal = tsk.executeTask();
     } catch (Throwable t) {
       if (tsk.getException() == null) {

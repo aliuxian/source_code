@@ -196,6 +196,9 @@ public abstract class Task<T extends Serializable> implements Serializable, Node
       if (ss != null) {
         ss.getHiveHistory().logPlanProgress(queryPlan);
       }
+      /**
+       * ExecDriver
+       */
       int retval = execute(driverContext);
       this.setDone();
       if (ss != null) {

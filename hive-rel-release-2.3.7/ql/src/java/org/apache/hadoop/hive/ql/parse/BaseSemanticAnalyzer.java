@@ -244,6 +244,8 @@ public abstract class BaseSemanticAnalyzer {
   }
 
   public abstract void analyzeInternal(ASTNode ast) throws SemanticException;
+
+
   public void init(boolean clearPartsCache) {
     //no-op
   }
@@ -255,6 +257,9 @@ public abstract class BaseSemanticAnalyzer {
   public void analyze(ASTNode ast, Context ctx) throws SemanticException {
     initCtx(ctx);
     init(true);
+    /**
+     * SemanticAnalyzer.analyzeInternal(...)
+     */
     analyzeInternal(ast);
   }
 

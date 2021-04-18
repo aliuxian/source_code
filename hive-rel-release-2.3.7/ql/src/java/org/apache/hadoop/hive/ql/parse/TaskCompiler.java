@@ -137,6 +137,9 @@ public abstract class TaskCompiler {
       return;
     }
 
+    /**
+     *  逻辑执行计划
+     */
     optimizeOperatorPlan(pCtx, inputs, outputs);
 
     /*
@@ -276,6 +279,10 @@ public abstract class TaskCompiler {
       }
     }
 
+    /**
+     * 生成物理执行计划
+     * 将OperatorTree => 物理执行
+     */
     generateTaskTree(rootTasks, pCtx, mvTask, inputs, outputs);
 
     // For each task, set the key descriptor for the reducer
@@ -289,6 +296,9 @@ public abstract class TaskCompiler {
       setInputFormat(rootTask);
     }
 
+    /**
+     * 优化物理执行计划
+     */
     optimizeTaskPlan(rootTasks, pCtx, ctx);
 
     /*
@@ -320,6 +330,11 @@ public abstract class TaskCompiler {
       }
     }
 
+    /**
+     * 运行模式：
+     * 本地模式
+     * 分布式模式  最大并并数量是8（可以调）
+     */
     decideExecMode(rootTasks, ctx, globalLimitCtx);
 
     if (pCtx.getQueryProperties().isCTAS() && !pCtx.getCreateTable().isMaterialization()) {

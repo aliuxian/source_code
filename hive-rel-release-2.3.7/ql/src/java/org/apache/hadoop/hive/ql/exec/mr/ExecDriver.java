@@ -233,6 +233,10 @@ public class ExecDriver extends Task<MapredWork> implements Serializable, Hadoop
       return 5;
     }
 
+    /**
+     * MapTask
+     * ReduceTask
+     */
     MapWork mWork = work.getMapWork();
     ReduceWork rWork = work.getReduceWork();
 
@@ -369,6 +373,9 @@ public class ExecDriver extends Task<MapredWork> implements Serializable, Hadoop
         }
       }
 
+      /**
+       *
+       */
       jc = new JobClient(job);
       // make this client wait if job tracker is not behaving well.
       Throttle.checkJobTracker(job, LOG);
@@ -411,6 +418,9 @@ public class ExecDriver extends Task<MapredWork> implements Serializable, Hadoop
         return 5;
       }
 
+      /**
+       * 提交作业到YARN
+       */
       rj = jc.submitJob(job);
 
       if (driverContext.isShutdown()) {

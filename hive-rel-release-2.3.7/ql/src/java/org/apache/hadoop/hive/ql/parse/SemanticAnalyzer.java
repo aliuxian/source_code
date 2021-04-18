@@ -1976,6 +1976,9 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
      */
     Map<String, String> sqAliasToCTEName = new HashMap<String, String>();
 
+    /**
+     * 处理表级别的元数据   表 视图  数据库
+     */
     for (String alias : tabAliases) {
       String tabName = qb.getTabNameForAlias(alias);
       String cteName = tabName.toLowerCase();
@@ -2094,6 +2097,9 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
 
     LOG.info("Get metadata for subqueries");
     // Go over the subqueries and getMetaData for these
+    /**
+     * 处理子查询
+     */
     for (String alias : qb.getSubqAliases()) {
       boolean wasView = aliasToViewInfo.containsKey(alias);
       boolean wasCTE = sqAliasToCTEName.containsKey(alias);
@@ -2121,6 +2127,9 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
     // metadata
     QBParseInfo qbp = qb.getParseInfo();
 
+    /**
+     *
+     */
     for (String name : qbp.getClauseNamesForDest()) {
       ASTNode ast = qbp.getDestForClause(name);
       switch (ast.getToken().getType()) {
@@ -10804,6 +10813,9 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
   @Override
   @SuppressWarnings("nls")
   public void analyzeInternal(ASTNode ast) throws SemanticException {
+    /**
+     *
+     */
     analyzeInternal(ast, new PlannerContext());
   }
 
@@ -11011,9 +11023,11 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
     viewsExpanded = new ArrayList<String>();
     ctesExpanded = new ArrayList<String>();
 
+    // 处理别名
     // 1. analyze and process the position alias
     // step processPositionAlias out of genResolvedParseTree
 
+    // 处理create table命令
     // 2. analyze create table command
     if (ast.getToken().getType() == HiveParser.TOK_CREATETABLE) {
       // if it is not CTAS, we don't need to go further and just return
@@ -11024,6 +11038,7 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
       queryState.setCommandType(HiveOperation.QUERY);
     }
 
+    // 处理 create view 命令
     // 3. analyze create view command
     if (ast.getToken().getType() == HiveParser.TOK_CREATEVIEW ||
         ast.getToken().getType() == HiveParser.TOK_CREATE_MATERIALIZED_VIEW ||
@@ -11066,15 +11081,29 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
     // the basic idea is similar to unparseTranslator.
     tableMask = new TableMask(this, conf, ctx.isSkipTableMasking());
 
+    /**
+     * AST => QB
+     */
     // 4. continue analyzing from the child ASTNode.
     Phase1Ctx ctx_1 = initPhase1Ctx();
     preProcessForInsert(child, qb);
+    /**
+     * doPhase1(child, qb, ctx_1, plannerCtx)
+     * 将多个不能分开执行的TOK封装成一个QB    之后的处理会将QB变为Operator(对应一个关键字)   =>  Operator Tree(逻辑执行计划)
+     */
     if (!doPhase1(child, qb, ctx_1, plannerCtx)) {
       // if phase1Result false return
       return false;
     }
     LOG.info("Completed phase 1 of Semantic Analysis");
 
+    /**
+     * 元数据相关：
+     *      HDFS
+     *      MySQL
+     *
+     * 比如sql写的 ...from student ==> MR   InputFormat.setInput(student表对应的HDFS目录)
+     */
     // 5. Resolve Parse Tree
     // Materialization is allowed if it is not a view definition
     getMetaData(qb, createVwDesc == null);
@@ -11125,15 +11154,43 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
     return genPlan(qb);
   }
 
+  /**
+   * 第一步   语法树 => 解析树
+   * 第二步   解析树 => OperatorTree
+   * 第三步   结果集的schema （select ...(结果集) from xxx）
+   * 第四步   构建ParseContext   帮助 Optimizer 和  Physical compiler
+   * 第五步   处理视图定义(表的另一种存在形式)，表中是真实的数据，视图只一个未执行的SQL的结果集的别名
+   * 第六步   如果有必要，生成表的访问的统计信息
+   * 第七步   执行逻辑优化
+   * 第八步   列裁剪
+   * 第九步   物理执行计划的优化   Operator Tree  => TaskTree
+   * 第十步   封装要查询的列到entity中，FieldSchema封装了列的信息
+   * 第十一步  处理最大分区扫描限制（如果有限制的话）
+   */
   void analyzeInternal(ASTNode ast, PlannerContext plannerCtx) throws SemanticException {
+
+    /**
+     * 生成解析树
+     * 1、 处理别名
+     * 2、 分析create table命令
+     * 3、 分析create view命令
+     * 4、 AST变成QB
+     * 5、 getMetaData(qb)   处理元数据相关
+     */
     // 1. Generate Resolved Parse tree from syntax tree
     LOG.info("Starting Semantic Analysis");
     //change the location of position alias process here
     processPositionAlias(ast);
+    /**
+     *
+     */
     if (!genResolvedParseTree(ast, plannerCtx)) {
       return;
     }
 
+    /**
+     * 生成Operator Tree （逻辑执行计划）
+     */
     // 2. Gen OP Tree from resolved Parse Tree
     Operator sinkOp = genOPTree(ast, plannerCtx);
 
@@ -11154,6 +11211,9 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
       }
     }
 
+    /**
+     * 成本优化（CBO），选择最优的Join顺序
+     */
     // 3. Deduce Resultset Schema
     if (createVwDesc != null && !this.ctx.isCboSucceeded()) {
       resultSchema = convertRowSchemaToViewSchema(opParseCtx.get(sinkOp).getRowResolver());
@@ -11170,6 +11230,9 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
       }
     }
 
+    /**
+     * 生成ParseContext
+     */
     // 4. Generate Parse Context for Optimizer & Physical compiler
     copyInfoToQueryProperties(queryProperties);
     ParseContext pCtx = new ParseContext(queryState, opToPartPruner, opToPartList, topOps,
@@ -11181,6 +11244,9 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
         viewAliasToInput, reduceSinkOperatorsAddedByEnforceBucketingSorting,
         analyzeRewrite, tableDesc, createVwDesc, queryProperties, viewProjectToTableSchema, acidFileSinks);
 
+    /**
+     * 处理视图
+     */
     // 5. Take care of view creation
     if (createVwDesc != null) {
       if (ctx.getExplainAnalyze() == AnalyzeState.RUNNING) {
@@ -11231,19 +11297,27 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
       }
     }
 
+    /**
+     * table的访问统计信息
+     */
     // 6. Generate table access stats if required
     if (HiveConf.getBoolVar(this.conf, HiveConf.ConfVars.HIVE_STATS_COLLECT_TABLEKEYS)) {
       TableAccessAnalyzer tableAccessAnalyzer = new TableAccessAnalyzer(pCtx);
       setTableAccessInfo(tableAccessAnalyzer.analyzeTableAccess());
     }
 
+    /**
+     * 逻辑执行计划的优化
+     */
     // 7. Perform Logical optimization
     if (LOG.isDebugEnabled()) {
       LOG.debug("Before logical optimization\n" + Operator.toString(pCtx.getTopOps().values()));
     }
     Optimizer optm = new Optimizer();
     optm.setPctx(pCtx);
+    // 初始化会生成一系列的Optimizer，
     optm.initialize(conf);
+    // 依次执行每一个Optimizer
     pCtx = optm.optimize();
     if (pCtx.getColumnAccessInfo() != null) {
       // set ColumnAccessInfo for view column authorization
@@ -11254,6 +11328,9 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
       LOG.debug("After logical optimization\n" + Operator.toString(pCtx.getTopOps().values()));
     }
 
+    /**
+     * 列裁剪
+     */
     // 8. Generate column access stats if required - wait until column pruning
     // takes place during optimization
     boolean isColumnInfoNeedForAuth = SessionState.get().isAuthorizationModeV2()
@@ -11265,21 +11342,35 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
       setColumnAccessInfo(columnAccessAnalyzer.analyzeColumnAccess(this.getColumnAccessInfo()));
     }
 
+    /**
+     * 生成TaskTree
+     */
     // 9. Optimize Physical op tree & Translate to target execution engine (MR,
     // TEZ..)
     if (!ctx.getExplainLogical()) {
+      /**
+       * 执行引擎的不同，生成的compiler也不同
+       * MR  Spark Tez
+       */
       TaskCompiler compiler = TaskCompilerFactory.getCompiler(conf, pCtx);
       compiler.init(queryState, console, db);
       compiler.compile(pCtx, rootTasks, inputs, outputs);
+
       fetchTask = pCtx.getFetchTask();
     }
     LOG.info("Completed plan generation");
 
+    /**
+     * 将要访问的列放到ReadEntity中
+     */
     // 10. put accessed columns to readEntity
     if (HiveConf.getBoolVar(this.conf, HiveConf.ConfVars.HIVE_STATS_COLLECT_SCANCOLS)) {
       putAccessedColumnsToReadEntity(inputs, columnAccessInfo);
     }
 
+    /**
+     * 最大分区扫描的限制
+     */
     // 11. if desired check we're not going over partition scan limits
     if (!ctx.isExplainSkipExecution()) {
       enforceScanLimits(pCtx, origFetchTask);

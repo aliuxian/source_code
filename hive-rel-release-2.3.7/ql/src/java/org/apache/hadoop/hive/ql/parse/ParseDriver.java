@@ -186,8 +186,20 @@ public class ParseDriver {
       LOG.debug("Parsing command: " + command);
     }
 
+    /**
+     * Spark SQL 底层是 calcite
+     * Antlr 对语法文件(HiveLexerX.g  HiveParse.g 在hive-exec模块中)编译之后生成解析类
+     * HiveLexerX  词法解析
+     * HiveParser  语法解析
+     *
+     *
+     * 输入 HQL
+     * 输出 TokenRewriteStream
+     * 每一个关键字分支都会变成一个token
+     */
     HiveLexerX lexer = new HiveLexerX(new ANTLRNoCaseStringStream(command));
     TokenRewriteStream tokens = new TokenRewriteStream(lexer);
+
     if (ctx != null) {
       if (viewFullyQualifiedName == null) {
         // Top level query
@@ -198,13 +210,21 @@ public class ParseDriver {
       }
       lexer.setHiveConf(ctx.getConf());
     }
+
+    /**
+     * 语法解析   HiveParse.g 编译生成
+     */
     HiveParser parser = new HiveParser(tokens);
+
     if (ctx != null) {
       parser.setHiveConf(ctx.getConf());
     }
     parser.setTreeAdaptor(adaptor);
     HiveParser.statement_return r = null;
     try {
+      /**
+       *
+       */
       r = parser.statement();
     } catch (RecognitionException e) {
       e.printStackTrace();
@@ -219,6 +239,9 @@ public class ParseDriver {
       throw new ParseException(parser.errors);
     }
 
+    /**
+     * 获取抽象语法树
+     */
     ASTNode tree = (ASTNode) r.getTree();
     tree.setUnknownTokenBoundaries();
     return tree;

@@ -126,6 +126,13 @@ public class CliDriver {
     String[] tokens = tokenizeCmd(cmd_trimmed);
     int ret = 0;
 
+    /**
+     * 四个分支，处理不同的指令
+     * 1、quit   exit
+     * 2、source
+     * 3、! shell
+     * 4、HQL   =>  select ...
+     */
     if (cmd_trimmed.toLowerCase().equals("quit") || cmd_trimmed.toLowerCase().equals("exit")) {
 
       // if we have come this far - either the previous commands
@@ -181,6 +188,12 @@ public class CliDriver {
     }  else { // local mode
       try {
         CommandProcessor proc = CommandProcessorFactory.get(tokens, (HiveConf) conf);
+        /**
+         * impl
+         * cmd   HQL
+         * proc  处理器
+         * ss    会话
+         */
         ret = processLocalCmd(cmd, proc, ss);
       } catch (SQLException e) {
         console.printError("Failed processing command " + tokens[0] + " " + e.getLocalizedMessage(),
@@ -188,6 +201,8 @@ public class CliDriver {
         ret = 1;
       }
     }
+
+
 
     ss.resetThreadName();
     return ret;
@@ -229,7 +244,17 @@ public class CliDriver {
               out.println(cmd);
             }
 
+            /**
+             * 重试次数
+             */
             qp.setTryCount(tryCount);
+            /**
+             * impl
+             * 执行HQL
+             * qp => Driver
+             *
+             * 内部输出第一分部 ==>  OK
+             */
             ret = qp.run(cmd).getResponseCode();
             if (ret != 0) {
               qp.close();
@@ -242,6 +267,9 @@ public class CliDriver {
 
             ArrayList<String> res = new ArrayList<String>();
 
+            /**
+             * 输出的第2部分，schema信息（字段名称）
+             */
             printHeader(qp, out);
 
             // print the results
@@ -250,6 +278,9 @@ public class CliDriver {
               if (out instanceof FetchConverter) {
                 ((FetchConverter)out).fetchStarted();
               }
+              /**
+               * 输出第三部分，结果部分
+               */
               while (qp.getResults(res)) {
                 for (String r : res) {
                   out.println(r);
@@ -276,6 +307,9 @@ public class CliDriver {
               ((FetchConverter)out).fetchFinished();
             }
 
+            /**
+             * 输出的第4部分，耗时以及结果数量
+             */
             console.printInfo("Time taken: " + timeTaken + " seconds" +
                 (counter == 0 ? "" : ", Fetched: " + counter + " row(s)"));
           } else {
@@ -350,6 +384,9 @@ public class CliDriver {
     SignalHandler oldSignal = null;
     Signal interruptSignal = null;
 
+    /**
+     * 中断处理，比如ctrl+c
+     */
     if (allowInterrupting) {
       // Remember all threads that were running at the time we started line processing.
       // Hook up the custom Ctrl+C handler while processing this line
@@ -385,8 +422,16 @@ public class CliDriver {
       int lastRet = 0, ret = 0;
 
       // we can not use "split" function directly as ";" may be quoted
+      /**
+       * line可能是多条HQL
+       *      use infoDB; select count(*) from student;
+       * 每一个command就是一条HQL
+       */
       List<String> commands = splitSemiColon(line);
-      
+
+      /**
+       * 执行HQL
+       */
       String command = "";
       for (String oneCmd : commands) {
 
@@ -400,6 +445,9 @@ public class CliDriver {
           continue;
         }
 
+        /**
+         * 处理一条HQL
+         */
         ret = processCmd(command);
         command = "";
         lastRet = ret;
@@ -683,13 +731,35 @@ public class CliDriver {
   }
 
   public static void main(String[] args) throws Exception {
+
+
     int ret = new CliDriver().run(args);
+    /**
+     * ret: 0 正常退出
+     *      5 cancel   Ctrl + c
+     */
     System.exit(ret);
   }
 
+  /**
+   * 提交SQL的几种形式：
+   * select * from table1;
+   * hive -e ""
+   * hive -f sqlFile
+   * source sqlFile
+   */
   public  int run(String[] args) throws Exception {
 
+    /**
+     * 负责参数解析
+     * hiveconf
+     * -hive.xx.xxx.xx = xx
+     */
     OptionsProcessor oproc = new OptionsProcessor();
+
+    /**
+     * process_stage1()
+     */
     if (!oproc.process_stage1(args)) {
       return 1;
     }
@@ -705,6 +775,12 @@ public class CliDriver {
       logInitDetailMessage = e.getMessage();
     }
 
+    /**
+     * 会话对象的初始化
+     * HiveConf  hive中配置信息的管理对象  比如 SparkConf
+     *
+     * 初始化标准输入，标准输出，错误流
+     */
     CliSessionState ss = new CliSessionState(new HiveConf(SessionState.class));
     ss.in = System.in;
     try {
@@ -715,10 +791,14 @@ public class CliDriver {
       return 3;
     }
 
+    /**
+     * process_stage2()
+     */
     if (!oproc.process_stage2(ss)) {
       return 2;
     }
 
+    // 静默模式   只打印结果
     if (!ss.getIsSilent()) {
       if (logInitFailed) {
         System.err.println(logInitDetailMessage);
@@ -744,6 +824,9 @@ public class CliDriver {
     }).substitute(conf, prompt);
     prompt2 = spacesForString(prompt);
 
+    /**
+     * 启动会话
+     */
     if (HiveConf.getBoolVar(conf, ConfVars.HIVE_CLI_TEZ_SESSION_ASYNC)) {
       // Start the session in a fire-and-forget manner. When the asynchronously initialized parts of
       // the session are needed, the corresponding getters and other methods will wait as needed.
@@ -756,6 +839,11 @@ public class CliDriver {
 
     // execute cli driver work
     try {
+      /**
+       * impl
+       *
+       *
+       */
       return executeDriver(ss, conf, oproc);
     } finally {
       ss.resetThreadName();
@@ -774,21 +862,35 @@ public class CliDriver {
   private int executeDriver(CliSessionState ss, HiveConf conf, OptionsProcessor oproc)
       throws Exception {
 
+    // 构建CliDriver
     CliDriver cli = new CliDriver();
     cli.setHiveVariables(oproc.getHiveVariables());
 
+    // 如果在hive中使用了database.table的方式，那么还需要处理一下
+    //  比如： select * from infodb.student
+    // 如果是  use infodb;  那么就不需要处理
     // use the specified database if specified
     cli.processSelectDatabase(ss);
 
+    // 解析-i参数指定的初始化文件
+    // hive -i initfiles
+    // 一般是一堆 set key=value; 这种
     // Execute -i init files (always in silent mode)
     cli.processInitFiles(ss);
 
+    /**
+     * 如果是通过hive -e “sql” 那么最终execString就是这个sql语句
+     */
     if (ss.execString != null) {
       int cmdProcessStatus = cli.processLine(ss.execString);
       return cmdProcessStatus;
     }
 
     try {
+      /**
+       * 通过hive -f sqlfile 那么 fileName就是要执行的sqlfile
+       * 一般sqlFile里面写的是一堆sql
+       */
       if (ss.fileName != null) {
         return cli.processFile(ss.fileName);
       }
@@ -796,10 +898,19 @@ public class CliDriver {
       System.err.println("Could not open input file for reading. (" + e.getMessage() + ")");
       return 3;
     }
+
+    /**
+     * 执行引擎
+     * 如果是mr的话，会有一个提示，使用spark或者tez，
+     */
     if ("mr".equals(HiveConf.getVar(conf, ConfVars.HIVE_EXECUTION_ENGINE))) {
       console.printInfo(HiveConf.generateMrDeprecationWarning());
     }
 
+    /**
+     * 初始化输入输出流
+     * 下面就是在hive的shell里面执行SQL
+     */
     setupConsoleReader();
 
     String line;
@@ -809,6 +920,10 @@ public class CliDriver {
     String curPrompt = prompt + curDB;
     String dbSpaces = spacesForString(curDB);
 
+    /**
+     * line  是一行但是不一定是一个sql，可能是多个：
+     * 比如： use infodb; select * from student;
+     */
     while ((line = reader.readLine(curPrompt + "> ")) != null) {
       if (!prefix.equals("")) {
         prefix += '\n';
@@ -816,8 +931,17 @@ public class CliDriver {
       if (line.trim().startsWith("--")) {
         continue;
       }
+      /**
+       * 以分号结尾的就需要去处理它
+       */
       if (line.trim().endsWith(";") && !line.trim().endsWith("\\;")) {
         line = prefix + line;
+
+        /**
+         * impl！！！！！！！
+         * line就是在shell中提交的一条命令（HQL语句），可能是一条sql，也可能是多条sql
+         * ret 是执行状态并不是执行结果
+         */
         ret = cli.processLine(line, true);
         prefix = "";
         curDB = getFormattedDb(conf, ss);

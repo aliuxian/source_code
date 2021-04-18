@@ -465,6 +465,14 @@ public class Driver implements CommandProcessor {
       ctx.setHDFSCleanup(true);
 
       perfLogger.PerfLogBegin(CLASS_NAME, PerfLogger.PARSE);
+      /**
+       * impl
+       * 解析 HQL => ASTNode    抽象语法树
+       *
+       * ParseDriver
+       *
+       * 返回抽象语法树的头结点
+       */
       ASTNode tree = ParseUtils.parse(command, ctx);
       perfLogger.PerfLogEnd(CLASS_NAME, PerfLogger.PARSE);
 
@@ -481,6 +489,10 @@ public class Driver implements CommandProcessor {
       }
 
       perfLogger.PerfLogBegin(CLASS_NAME, PerfLogger.ANALYZE);
+
+      /**
+       * 语义分析器
+       */
       BaseSemanticAnalyzer sem = SemanticAnalyzerFactory.get(queryState, tree);
       List<HiveSemanticAnalyzerHook> saHooks =
           getHooks(HiveConf.ConfVars.SEMANTIC_ANALYZER_HOOK,
@@ -503,7 +515,19 @@ public class Driver implements CommandProcessor {
         for (HiveSemanticAnalyzerHook hook : saHooks) {
           tree = hook.preAnalyze(hookCtx, tree);
         }
+
+        /**
+         * impl
+         * 分析 ASTNode
+         * AST => 解析树 ParseTree
+         * 解析树 => QueryBlock   不能在拆分的独立执行的逻辑单元
+         * QueryBlock => OperatorTree
+         * 逻辑执行计划的优化
+         * OperatorTree => TaskTree
+         * 物理执行计划的优化
+         */
         sem.analyze(tree, ctx);
+
         hookCtx.update(sem);
         for (HiveSemanticAnalyzerHook hook : saHooks) {
           hook.postAnalyze(hookCtx, sem.getAllRootTasks());
@@ -528,6 +552,9 @@ public class Driver implements CommandProcessor {
 
       // get the output schema
       schema = getSchema(sem, conf);
+      /**
+       * 构造QueryPlan
+       */
       plan = new QueryPlan(queryStr, sem, perfLogger.getStartTime(PerfLogger.DRIVER_RUN), queryId,
         queryState.getHiveOperation(), schema);
 
@@ -1224,6 +1251,9 @@ public class Driver implements CommandProcessor {
   @Override
   public CommandProcessorResponse run(String command)
       throws CommandNeedRetryException {
+    /**
+     *
+     */
     return run(command, false);
   }
 
@@ -1234,6 +1264,10 @@ public class Driver implements CommandProcessor {
 
   public CommandProcessorResponse run(String command, boolean alreadyCompiled)
         throws CommandNeedRetryException {
+
+    /**
+     * impl
+     */
     CommandProcessorResponse cpr = runInternal(command, alreadyCompiled);
 
     if(cpr.getResponseCode() == 0) {
@@ -1314,6 +1348,13 @@ public class Driver implements CommandProcessor {
       if (metrics != null) {
         metrics.decrementCounter(MetricsConstant.WAITING_COMPILE_OPS, 1);
       }
+      /**
+       * impl
+       * 三件事：
+       *      parse
+       *      analyze
+       *      QueryPlan
+       */
       ret = compile(command, true, deferClose);
     } finally {
       compileLock.unlock();
@@ -1411,6 +1452,7 @@ public class Driver implements CommandProcessor {
     downstreamError = null;
     lDrvState.stateLock.lock();
     try {
+      // alreadyCompiled 默认是false
       if (alreadyCompiled) {
         if (lDrvState.driverState == DriverState.COMPILED) {
           lDrvState.driverState = DriverState.EXECUTING;
@@ -1420,6 +1462,9 @@ public class Driver implements CommandProcessor {
           return createProcessorResponse(12);
         }
       } else {
+        /**
+         * compiler状态
+         */
         lDrvState.driverState = DriverState.COMPILING;
       }
     } finally {
@@ -1429,6 +1474,7 @@ public class Driver implements CommandProcessor {
     // a flag that helps to set the correct driver state in finally block by tracking if
     // the method has been returned by an error or not.
     boolean isFinishedWithError = true;
+
     try {
       HiveDriverRunHookContext hookContext = new HiveDriverRunHookContextImpl(conf,
           alreadyCompiled ? ctx.getCmd() : command);
@@ -1454,6 +1500,12 @@ public class Driver implements CommandProcessor {
       int ret;
       if (!alreadyCompiled) {
         // compile internal will automatically reset the perf logger
+        /**
+         * impl
+         * 编译
+         * HQL  到  TaskTree
+         * HQL => AST  => ParseTree => QB Tree => OperatorTree(Optimizer) => TaskTree(Optimizer)
+         */
         ret = compileInternal(command, true);
         // then we continue to use this perf logger
         perfLogger = SessionState.getPerfLogger();
@@ -1523,6 +1575,11 @@ public class Driver implements CommandProcessor {
           return rollback(createProcessorResponse(ret));
         }
       }
+
+      /**
+       * impl
+       * 执行
+       */
       ret = execute(true);
       if (ret != 0) {
         //if needRequireLock is false, the release here will do nothing because there is no lock
@@ -1724,6 +1781,9 @@ public class Driver implements CommandProcessor {
       lDrvState.stateLock.unlock();
     }
 
+    /**
+     * 最大并行数  8
+     */
     maxthreads = HiveConf.getIntVar(conf, HiveConf.ConfVars.EXECPARALLETHREADNUMBER);
 
     HookContext hookContext = null;
@@ -1807,6 +1867,10 @@ public class Driver implements CommandProcessor {
       if (isInterrupted()) {
         return handleInterruption("before running tasks.");
       }
+      /**
+       * runnable队列  可运行待运行的任务
+       * running 队列  正在运行的任务
+       */
       DriverContext driverCxt = new DriverContext(ctx);
       driverCxt.prepare(plan);
 
@@ -1817,11 +1881,18 @@ public class Driver implements CommandProcessor {
       SessionState.get().setStackTraces(new HashMap<String, List<List<String>>>());
       SessionState.get().setLocalMapRedErrors(new HashMap<String, List<String>>());
 
+      /**
+       * 添加所有的rootTask 到 runnable队列
+       * plan  => QueryPlan
+       */
       // Add root Tasks to runnable
       for (Task<? extends Serializable> tsk : plan.getRootTasks()) {
         // This should never happen, if it does, it's a bug with the potential to produce
         // incorrect results.
         assert tsk.getParentTasks() == null || tsk.getParentTasks().isEmpty();
+        /**
+         *
+         */
         driverCxt.addToRunnable(tsk);
 
         if (metrics != null) {
@@ -1835,7 +1906,16 @@ public class Driver implements CommandProcessor {
 
         // Launch upto maxthreads tasks
         Task<? extends Serializable> task;
+        /**
+         * 从runnable中取出Task，提交到YARN运行
+         *
+         * 任务的执行结果在TaskRunner中的TaskResult对象中
+         *
+         * 最大并行度是8，getRunnable内部会对并行度做判断
+         */
         while ((task = driverCxt.getRunnable(maxthreads)) != null) {
+
+          //
           TaskRunner runner = launchTask(task, queryId, noName, jobname, jobs, driverCxt);
           if (!runner.isRunning()) {
             break;
@@ -1900,6 +1980,9 @@ public class Driver implements CommandProcessor {
           SessionState.get().getHiveHistory().endTask(queryId, tsk);
         }
 
+        /**
+         * 当前这个Task执行完毕之后，如果有子任务的话，将他的子任务添加到runnable中，
+         */
         if (tsk.getChildTasks() != null) {
           for (Task<? extends Serializable> child : tsk.getChildTasks()) {
             if (DriverContext.isLaunchable(child)) {
@@ -2051,6 +2134,11 @@ public class Driver implements CommandProcessor {
       }
     }
 
+    /**
+     * 执行完毕，打印一个OK
+     *
+     * 输出会有四个部分，这里是第一个部分
+     */
     if (console != null) {
       console.printInfo("OK");
     }
@@ -2163,20 +2251,33 @@ public class Driver implements CommandProcessor {
       cxt.incCurJobNo(1);
       console.printInfo("Launching Job " + cxt.getCurJobNo() + " out of " + jobs);
     }
+
     tsk.initialize(queryState, plan, cxt, ctx.getOpContext());
     TaskResult tskRes = new TaskResult();
+    /**
+     * 创建TaskRunner 继承了 Thread
+     */
     TaskRunner tskRun = new TaskRunner(tsk, tskRes);
 
     cxt.launching(tskRun);
     // Launch Task
     if (HiveConf.getBoolVar(conf, HiveConf.ConfVars.EXECPARALLEL) && tsk.isMapRedTask()) {
+
+      // 并行模式的话
       // Launch it in the parallel mode, as a separate thread only for MR tasks
       if (LOG.isInfoEnabled()){
         LOG.info("Starting task [" + tsk + "] in parallel");
       }
       tskRun.setOperationLog(OperationLog.getCurrentOperationLog());
+
+      /**
+       * 启动TaskRunner
+       * 底层还是tskRun.runSequential();
+       */
       tskRun.start();
     } else {
+
+      // 本地模式，不需要创建线程，直接执行核心的逻辑
       if (LOG.isInfoEnabled()){
         LOG.info("Starting task [" + tsk + "] in serial mode");
       }

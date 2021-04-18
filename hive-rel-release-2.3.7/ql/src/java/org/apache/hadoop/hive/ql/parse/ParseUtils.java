@@ -73,8 +73,14 @@ public final class ParseUtils {
   /** Parses the Hive query. */
   public static ASTNode parse(
       String command, Context ctx, String viewFullyQualifiedName) throws ParseException {
+
+    /**
+     * 语法分析和词法分析
+     * 返回一个抽象语法树的头结点
+     */
     ParseDriver pd = new ParseDriver();
     ASTNode tree = pd.parse(command, ctx, viewFullyQualifiedName);
+
     tree = findRootNonNullToken(tree);
     handleSetColRefs(tree);
     return tree;
