@@ -249,6 +249,7 @@ private[spark] class DiskBlockObjectWriter(
       open()
     }
 
+    // objOut 序列化流
     objOut.writeKey(key)
     objOut.writeValue(value)
     recordWritten()

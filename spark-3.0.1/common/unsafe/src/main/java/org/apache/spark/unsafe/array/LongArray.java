@@ -43,6 +43,7 @@ public final class LongArray {
     this.memory = memory;
     this.baseObj = memory.getBaseObject();
     this.baseOffset = memory.getBaseOffset();
+    // 8个字节一个位置
     this.length = memory.size() / WIDTH;
   }
 

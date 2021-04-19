@@ -241,6 +241,7 @@ final class ShuffleExternalSorter extends MemoryConsumer {
            */
           Platform.copyMemory(
             recordPage, recordReadPosition, writeBuffer, Platform.BYTE_ARRAY_OFFSET, toTransfer);
+
           writer.write(writeBuffer, 0, toTransfer);
           recordReadPosition += toTransfer;
           dataRemaining -= toTransfer;
@@ -470,17 +471,17 @@ final class ShuffleExternalSorter extends MemoryConsumer {
 
     /**
      * 指针数组是否需要扩容
+     * 真正的排序器
      */
     growPointerArrayIfNecessary();
+
     /**
-     * 是使用8字节还是4字节，
-     * 不同的平台不一样
-     *
+     * 对齐相关
      */
     final int uaoSize = UnsafeAlignedOffset.getUaoSize();
     // Need 4 or 8 bytes to store the record length.
     /**
-     * 数据占用的内存以及record占用的内存
+     * 数据占用的内存以及对齐需要的长度
      */
     final int required = length + uaoSize;
     /**
@@ -491,10 +492,11 @@ final class ShuffleExternalSorter extends MemoryConsumer {
 
     assert(currentPage != null);
     final Object base = currentPage.getBaseObject();
+
     // 计算存放record的内存地址
     final long recordAddress = taskMemoryManager.encodePageNumberAndOffset(currentPage, pageCursor);
     /**
-     * ?????????
+     * 将数据长度放入到page中
      */
     UnsafeAlignedOffset.putSize(base, pageCursor, length);
     pageCursor += uaoSize;
@@ -506,6 +508,7 @@ final class ShuffleExternalSorter extends MemoryConsumer {
     Platform.copyMemory(recordBase, recordOffset, base, pageCursor, length);
     // 跟新cursor的位置
     pageCursor += length;
+
     /**
      * 将指针插入到排序器
      */

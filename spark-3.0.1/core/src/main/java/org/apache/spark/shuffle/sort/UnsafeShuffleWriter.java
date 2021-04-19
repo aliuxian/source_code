@@ -96,7 +96,13 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     public byte[] getBuf() { return buf; }
   }
 
+  /**
+   * 默认大小1MB
+   */
   private MyByteArrayOutputStream serBuffer;
+  /**
+   * 内部存放序列化之后的数据，数据来源是 MyByteArrayOutputStream
+   */
   private SerializationStream serOutputStream;
 
   /**
@@ -227,6 +233,9 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     sorter = null;
     final long[] partitionLengths;
     try {
+      /**
+       * merge 溢写文件
+       */
       partitionLengths = mergeSpills(spills);
     } finally {
       for (SpillInfo spill : spills) {
@@ -251,6 +260,7 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
      * 每条数据都会重置
      */
     serBuffer.reset();
+
     /**
      * 将数据写入到buffer中
      */

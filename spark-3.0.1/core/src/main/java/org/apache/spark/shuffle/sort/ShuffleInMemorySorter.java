@@ -48,7 +48,7 @@ final class ShuffleInMemorySorter {
    * Only part of the array will be used to store the pointers, the rest part is preserved as
    * temporary buffer for sorting.
    *
-   * 数组一部分用于存储RecordPointer以及分区ID，一部分用于排序
+   * 数组一部分用于存储RecordPointer
    */
   private LongArray array;
 
@@ -160,12 +160,12 @@ final class ShuffleInMemorySorter {
       throw new IllegalStateException("There is no space for new record");
     }
     /**
-     * Record 组成：
+     * recordPointer 组成：
      *        partitionID + pageNum +  offsetInPage
      *        24            13         27
      * pageNum 以及 offset 都在 recordPointer中分别是高13位 和 低27位
      *
-     * 将record 插入 pos位置
+     * recordPointer 插入 pos位置
      * pos++
      */
     array.set(pos, PackedRecordPointer.packPointer(recordPointer, partitionId));
