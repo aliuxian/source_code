@@ -81,18 +81,20 @@ private[spark] class ResultTask[T, U](
     } else 0L
     val ser = SparkEnv.get.closureSerializer.newInstance()
 
+    /**
+     * 反序列化获取rdd以及计算函数(action算子)
+     */
     val (rdd, func) = ser.deserialize[(RDD[T], (TaskContext, Iterator[T]) => U)](
       ByteBuffer.wrap(taskBinary.value), Thread.currentThread.getContextClassLoader)
 
     _executorDeserializeTimeNs = System.nanoTime() - deserializeStartTimeNs
-
     _executorDeserializeCpuTime = if (threadMXBean.isCurrentThreadCpuTimeSupported) {
       threadMXBean.getCurrentThreadCpuTime - deserializeStartCpuTime
     } else 0L
 
     /**
      * rdd.iterator(partition, context) 获取到数据之后，就会执行func，这里以及是最后action算子的func
-     * rdd.map(func).saveAsTextFile(...)
+     * rdd.map(...).saveAsTextFile(func)
      * map的func，的执行是在rdd.iterator(partition, context)这个里面的逻辑。还会涉及到ShuffleReader，在compute里面，
      * 最后返回的数据已经是执行到action的了
      * saveAsTextFile的func是Spark自己实现的，

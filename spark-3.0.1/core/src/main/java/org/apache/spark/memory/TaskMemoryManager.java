@@ -443,6 +443,7 @@ public class TaskMemoryManager {
   /**
    * Clean up all allocated memory and pages. Returns the number of bytes freed. A non-zero return
    * value can be used to detect memory leaks.
+   * 释放所有内存
    */
   public long cleanUpAllAllocatedMemory() {
     synchronized (this) {
@@ -472,6 +473,8 @@ public class TaskMemoryManager {
 
   /**
    * Returns the memory consumption, in bytes, for the current task.
+   *
+   * 当前Task消耗的内存
    */
   public long getMemoryConsumptionForThisTask() {
     return memoryManager.getExecutionMemoryUsageForTask(taskAttemptId);

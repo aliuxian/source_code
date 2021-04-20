@@ -487,6 +487,7 @@ private[spark] class ExternalSorter[K, V, C](
       }
       it.flatten
     } else {
+      // 需要排序
       // We have a total ordering, so the objects with the same key are sequential.
       new Iterator[Product2[K, C]] {
         val sorted = mergeSort(iterators, comparator).buffered
@@ -786,6 +787,9 @@ private[spark] class ExternalSorter[K, V, C](
       // Case where we only have in-memory data
       val collection = if (aggregator.isDefined) map else buffer
 
+      /**
+       * 对数据进行排序，然后直接写出
+       */
       val it = collection.destructiveSortedWritablePartitionedIterator(comparator)
 
       while (it.hasNext()) {

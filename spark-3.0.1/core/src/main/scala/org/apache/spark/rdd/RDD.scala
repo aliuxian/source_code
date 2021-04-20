@@ -377,6 +377,10 @@ abstract class RDD[T: ClassTag](
       elementClassTag,
       () => {
         readCachedBlock = false
+
+        /**
+         *
+         */
         computeOrReadCheckpoint(partition, context)
       }) match {
       /**
