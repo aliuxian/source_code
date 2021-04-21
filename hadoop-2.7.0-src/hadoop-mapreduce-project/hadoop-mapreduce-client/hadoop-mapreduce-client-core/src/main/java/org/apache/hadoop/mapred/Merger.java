@@ -635,6 +635,7 @@ public class Merger {
         }
         List<Segment<K, V>> segmentsToMerge =
           new ArrayList<Segment<K, V>>();
+
         int segmentsConsidered = 0;
         int numSegmentsToConsider = factor;
         long startBytes = 0; // starting bytes of segments of this merge
@@ -670,11 +671,17 @@ public class Merger {
             
           numSegmentsToConsider = factor - segmentsConsidered;
         }
-        
+
+        /**
+         * 优先级队列
+         */
         //feed the streams to the priority queue
         initialize(segmentsToMerge.size());
         clear();
         for (Segment<K, V> segment : segmentsToMerge) {
+          /**
+           * 将segment添加到优先级队中
+           */
           put(segment);
         }
         
@@ -730,6 +737,7 @@ public class Merger {
                                               approxOutputSize, conf);
 
           FSDataOutputStream out = fs.create(outputFile);
+
           out = CryptoUtils.wrapIfNecessary(conf, out);
           Writer<K, V> writer = new Writer<K, V>(conf, out, keyClass, valueClass,
               codec, writesCounter, true);

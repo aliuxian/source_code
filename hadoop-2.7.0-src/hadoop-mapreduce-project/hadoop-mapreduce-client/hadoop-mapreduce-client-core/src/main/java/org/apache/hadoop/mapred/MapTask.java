@@ -775,6 +775,9 @@ public class MapTask extends Task {
     public void close(TaskAttemptContext context
                       ) throws IOException,InterruptedException {
       try {
+        /**
+         * 将缓冲区的数据进行flush
+         */
         collector.flush();
       } catch (ClassNotFoundException cnf) {
         throw new IOException("can't find class ", cnf);
@@ -896,6 +899,9 @@ public class MapTask extends Task {
       statusUpdate(umbilical);
       input.close();
       input = null;
+      /**
+       * 内部会调用flush方法
+       */
       output.close(mapperContext);
       output = null;
     } finally {
@@ -1709,6 +1715,9 @@ public class MapTask extends Task {
       }
       spillLock.lock();
       try {
+        /**
+         * 溢写线程正在溢写
+         */
         while (spillInProgress) {
           reporter.progress();
           spillDone.await();
@@ -1731,6 +1740,9 @@ public class MapTask extends Task {
                    "); kvend = " + kvend + "(" + (kvend * 4) +
                    "); length = " + (distanceTo(kvend, kvstart,
                          kvmeta.capacity()) + 1) + "/" + maxRec);
+          /**
+           * 缓冲区中还有数据
+           */
           sortAndSpill();
         }
       } catch (InterruptedException e) {
@@ -1753,6 +1765,9 @@ public class MapTask extends Task {
       }
       // release sort buffer before the merge
       kvbuffer = null;
+      /**
+       * 对溢写文件进行merge
+       */
       mergeParts();
       Path outputPath = mapOutputFile.getOutputFile();
       fileOutputByteCounter.increment(rfs.getFileStatus(outputPath).getLen());
@@ -1849,6 +1864,7 @@ public class MapTask extends Task {
 
         /**
          * 创建一个溢写的文件  mapOutputFile
+         * 命名规则： spill + numSpills + .out
          */
         final Path filename =
             mapOutputFile.getSpillFileForWrite(numSpills, size);
@@ -1885,8 +1901,11 @@ public class MapTask extends Task {
         for (int i = 0; i < partitions; ++i) {
           IFile.Writer<K, V> writer = null;
           try {
+            // 当前这个分区的segment的开始位置
             long segmentStart = out.getPos();
+
             FSDataOutputStream partitionOut = CryptoUtils.wrapIfNecessary(job, out);
+
             writer = new Writer<K, V>(job, partitionOut, keyClass, valClass, codec,
                                       spilledRecordsCounter);
 
@@ -1931,6 +1950,9 @@ public class MapTask extends Task {
               }
             }
 
+            /**
+             *
+             */
             // close the writer
             writer.close();
 
@@ -1955,6 +1977,9 @@ public class MapTask extends Task {
           }
         }
 
+        /**
+         * 索引数据在内存中放不下了，需要放到
+         */
         if (totalIndexCacheMemory >= indexCacheMemoryLimit) {
           // create spill index file
           Path indexFilename =
@@ -1973,6 +1998,9 @@ public class MapTask extends Task {
         LOG.info("Finished spill " + numSpills);
         ++numSpills;
       } finally {
+        /**
+         *
+         */
         if (out != null) out.close();
       }
     }
@@ -2119,6 +2147,7 @@ public class MapTask extends Task {
         filename[i] = mapOutputFile.getSpillFile(i);
         finalOutFileSize += rfs.getFileStatus(filename[i]).getLen();
       }
+
       if (numSpills == 1) { //the spill is the final output
         sameVolRename(filename[0],
             mapOutputFile.getOutputFileForWriteInVolume(filename[0]));
@@ -2149,6 +2178,9 @@ public class MapTask extends Task {
           mapOutputFile.getOutputIndexFileForWrite(finalIndexFileSize);
 
       //The output stream for the final single output file
+      /**
+       * 最后一个输出文件
+       */
       FSDataOutputStream finalOut = rfs.create(finalOutputFile, true, 4096);
 
       if (numSpills == 0) {
@@ -2179,6 +2211,11 @@ public class MapTask extends Task {
         
         IndexRecord rec = new IndexRecord();
         final SpillRecord spillRec = new SpillRecord(partitions);
+
+        /**
+         * 一次遍历每一个分区，然后遍历所有的溢写文件，将对应分区在每一个溢写文件中的索引信息找到，
+         * 为每一个文件中的该分区对应的数据创建一个Segment对象，并将其添加到segmentList中
+         */
         for (int parts = 0; parts < partitions; parts++) {
           //create the segments to be merged
           List<Segment<K,V>> segmentList =
@@ -2200,9 +2237,12 @@ public class MapTask extends Task {
 
           int mergeFactor = job.getInt(JobContext.IO_SORT_FACTOR, 100);
           // sort the segments only if there are intermediate merges
+          // segmentList.size() > mergeFactor  默认情况下表示当前分区的数据分布在一百个segment中
+          // 当前分区的segment数量大于mapreduce.task.io.sort.factor merge阈值 默认100 至少有一百个溢写文件
           boolean sortSegments = segmentList.size() > mergeFactor;
           //merge
           @SuppressWarnings("unchecked")
+          // 对当前分区的所有segment进行merge
           RawKeyValueIterator kvIter = Merger.merge(job, rfs,
                          keyClass, valClass, codec,
                          segmentList, mergeFactor,
@@ -2214,16 +2254,17 @@ public class MapTask extends Task {
           //write merged output to disk
           long segmentStart = finalOut.getPos();
           FSDataOutputStream finalPartitionOut = CryptoUtils.wrapIfNecessary(job, finalOut);
+          // 为当前分区创建一个Writer对象
           Writer<K, V> writer =
               new Writer<K, V>(job, finalPartitionOut, keyClass, valClass, codec,
                                spilledRecordsCounter);
-          /**
-           * 对溢写文件进行合并
-           * 有两个溢写文件就进行一次合并。
-           */
+
           if (combinerRunner == null || numSpills < minSpillsForCombine) {
+            // 不需要进行combiner
+            // 直接将数据写出
             Merger.writeFile(kvIter, writer, reporter, job);
           } else {
+            // 需要对数据进行combiner
             combineCollector.setWriter(writer);
             combinerRunner.combine(kvIter, combineCollector);
           }

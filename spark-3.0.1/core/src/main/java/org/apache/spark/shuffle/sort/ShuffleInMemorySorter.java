@@ -217,6 +217,9 @@ final class ShuffleInMemorySorter {
       Sorter<PackedRecordPointer, LongArray> sorter =
         new Sorter<>(new ShuffleSortDataFormat(buffer));
 
+      /**
+       * 使用的是Timsort
+       */
       sorter.sort(array, 0, pos, SORT_COMPARATOR);
     }
     return new ShuffleSorterIterator(pos, array, offset);

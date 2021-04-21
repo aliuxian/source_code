@@ -189,6 +189,9 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
          */
         insertRecordIntoSorter(records.next());
       }
+      /**
+       * 对溢写文件进行合并
+       */
       closeAndWriteOutput();
       success = true;
     } finally {

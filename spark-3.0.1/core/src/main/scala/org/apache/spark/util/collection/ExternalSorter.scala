@@ -324,6 +324,10 @@ private[spark] class ExternalSorter[K, V, C](
         val partitionId = inMemoryIterator.nextPartition()
         require(partitionId >= 0 && partitionId < numPartitions,
           s"partition Id: ${partitionId} should be in the range [0, ${numPartitions})")
+
+        /**
+         * 写出数据
+         */
         inMemoryIterator.writeNext(writer)
         elementsPerPartition(partitionId) += 1
         objectsWritten += 1
