@@ -304,6 +304,9 @@ private[spark] class ExternalSorter[K, V, C](
     val batchSizes = new ArrayBuffer[Long]
 
     // How many elements we have in each partition
+    /**
+     * 每个分区的数据量
+     */
     val elementsPerPartition = new Array[Long](numPartitions)
 
     // Flush the disk writer's contents to disk, and update relevant variables.
@@ -327,6 +330,7 @@ private[spark] class ExternalSorter[K, V, C](
 
         /**
          * 写出数据
+         * 先写到writer的缓冲区
          */
         inMemoryIterator.writeNext(writer)
         elementsPerPartition(partitionId) += 1

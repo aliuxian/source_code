@@ -272,6 +272,9 @@ private[spark] class DiskBlockObjectWriter(
     numRecordsWritten += 1
     writeMetrics.incRecordsWritten(1)
 
+    /**
+     * 更新metrics
+     */
     if (numRecordsWritten % 16384 == 0) {
       updateBytesWritten()
     }
