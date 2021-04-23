@@ -161,10 +161,14 @@ public class StandbyCheckpointer {
       assert namesystem.getEditLog().isOpenForRead() :
         "Standby Checkpointer should only attempt a checkpoint when " +
         "NN is in standby mode, but the edit logs are in an unexpected state";
-      
+
+      /**
+       * 获取当前的FSImage
+       */
       FSImage img = namesystem.getFSImage();
-      
+      // FSImage中最大的id
       long prevCheckpointTxId = img.getStorage().getMostRecentCheckpointTxId();
+      // 还未进行checkpoint的最大的id
       long thisCheckpointTxId = img.getLastAppliedOrWrittenTxId();
       assert thisCheckpointTxId >= prevCheckpointTxId;
       if (thisCheckpointTxId == prevCheckpointTxId) {
@@ -182,6 +186,9 @@ public class StandbyCheckpointer {
       } else {
         imageType = NameNodeFile.IMAGE;
       }
+      /**
+       * 将imege文件保存到本地
+       */
       img.saveNamespace(namesystem, imageType, canceler);
       txid = img.getStorage().getMostRecentCheckpointTxId();
       assert txid == thisCheckpointTxId : "expected to save checkpoint at txid=" +
@@ -201,9 +208,16 @@ public class StandbyCheckpointer {
     // See HDFS-4816
     ExecutorService executor =
         Executors.newSingleThreadExecutor(uploadThreadFactory);
+
+    /**
+     * 通过HTTP服务将image文件传给active NameNode
+     */
     Future<Void> upload = executor.submit(new Callable<Void>() {
       @Override
       public Void call() throws IOException {
+        /**
+         *
+         */
         TransferFsImage.uploadImageFromStorage(activeNNAddress, conf,
             namesystem.getFSImage().getStorage(), imageType, txid, canceler);
         return null;
@@ -298,6 +312,9 @@ public class StandbyCheckpointer {
     }
 
     private void doWork() {
+      /**
+       * 默认是60s
+       */
       final long checkPeriod = 1000 * checkpointConf.getCheckPeriod();
       // Reset checkpoint time so that we don't always checkpoint
       // on startup.
@@ -313,6 +330,7 @@ public class StandbyCheckpointer {
             break;
           }
         }
+
         try {
           // We may have lost our ticket since last checkpoint, log in again, just in case
           if (UserGroupInformation.isSecurityEnabled()) {
@@ -320,19 +338,32 @@ public class StandbyCheckpointer {
           }
           
           final long now = monotonicNow();
+          /**
+           * 未进行checkpoint的日志数
+           */
           final long uncheckpointed = countUncheckpointedTxns();
+          /**
+           * secsSinceLast 距离上一次checkpoint的时间
+           */
           final long secsSinceLast = (now - lastCheckpointTime) / 1000;
           
           boolean needCheckpoint = needRollbackCheckpoint;
+
           if (needCheckpoint) {
             LOG.info("Triggering a rollback fsimage for rolling upgrade.");
           } else if (uncheckpointed >= checkpointConf.getTxnCount()) {
+            /**
+             * 为进行checkpoint的数量达到100w条
+             */
             LOG.info("Triggering checkpoint because there have been " + 
                 uncheckpointed + " txns since the last checkpoint, which " +
                 "exceeds the configured threshold " +
                 checkpointConf.getTxnCount());
             needCheckpoint = true;
           } else if (secsSinceLast >= checkpointConf.getPeriod()) {
+            /**
+             * 超过一个小时没有进行checkpoint
+             */
             LOG.info("Triggering checkpoint because it has been " +
                 secsSinceLast + " seconds since the last checkpoint, which " +
                 "exceeds the configured interval " + checkpointConf.getPeriod());
@@ -350,6 +381,9 @@ public class StandbyCheckpointer {
           }
           
           if (needCheckpoint) {
+            /**
+             * 执行checkpoint操作
+             */
             doCheckpoint();
             // reset needRollbackCheckpoint to false only when we finish a ckpt
             // for rollback image

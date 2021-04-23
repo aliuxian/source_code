@@ -1101,13 +1101,18 @@ public class FSImage implements Closeable {
     if (editLogWasOpen) {
       editLog.endCurrentLogSegment(true);
     }
+
     long imageTxId = getLastAppliedOrWrittenTxId();
+
     if (!addToCheckpointing(imageTxId)) {
       throw new IOException(
           "FS image is being downloaded from another NN at txid " + imageTxId);
     }
     try {
       try {
+        /**
+         * 保存FSImage
+         */
         saveFSImageInAllDirs(source, nnf, imageTxId, canceler);
         storage.writeAll();
       } finally {
@@ -1190,6 +1195,9 @@ public class FSImage implements Closeable {
   
       // Since we now have a new checkpoint, we can clean up some
       // old edit logs and checkpoints.
+      /**
+       * 删除老的日志文件
+       */
       purgeOldStorage(nnf);
     } finally {
       // Notify any threads waiting on the checkpoint to be canceled

@@ -73,14 +73,25 @@ public class CheckpointConf {
   }
 
   public long getPeriod() {
+    /**
+     * 3600
+     */
     return checkpointPeriod;
   }
 
   public long getCheckPeriod() {
+    /**
+     * checkpointCheckPeriod  60
+     *
+     * checkpointPeriod       3600
+     */
     return Math.min(checkpointCheckPeriod, checkpointPeriod);
   }
 
   public long getTxnCount() {
+    /**
+     * 默认100w
+     */
     return checkpointTxnCount;
   }
 
