@@ -159,6 +159,9 @@ public class Sender implements Runnable {
         // main loop, runs until close is called
         while (running) {
             try {
+                /**
+                 * impl
+                 */
                 run(time.milliseconds());
             } catch (Exception e) {
                 log.error("Uncaught error in kafka producer I/O thread: ", e);
@@ -220,17 +223,40 @@ public class Sender implements Runnable {
             }
         }
 
+        /**
+         * impl
+         */
         long pollTimeout = sendProducerData(now);
+
+        /**
+         * 建立连接，拉取元数据相关
+         */
         client.poll(pollTimeout, now);
     }
 
+    /**
+     * 所以第一次执行的时候，这个方法并不会将数据发送出去，因为网络都没有建立好
+     */
     private long sendProducerData(long now) {
+        /**
+         * 获取集群元数据：
+         *  第一次进来的时候就是为了去获取元数据，所以这里是获取不到的
+         *  后面再进来就会有元数据信息了
+         */
         Cluster cluster = metadata.fetch();
+
+        /**
+         * 哪些分区有数据需要发送（第一次获取元数据的时候，是没有数据的）
+         */
         // get the list of partitions with data ready to send
         RecordAccumulator.ReadyCheckResult result = this.accumulator.ready(cluster, now);
 
         // if there are any partitions whose leaders are not known yet, force metadata update
         if (!result.unknownLeaderTopics.isEmpty()) {
+            /**
+             * 有topic没有元数据信息
+             * 更新元数据信息
+             */
             // The set of topics with unknown leader contains topics with leader election pending as well as
             // topics which may have expired. Add the topic again to metadata to ensure it is included
             // and request metadata update, since there are messages to send to the topic.
@@ -239,17 +265,31 @@ public class Sender implements Runnable {
             this.metadata.requestUpdate();
         }
 
+        /**
+         * 检查所有需要发送数据的节点的网络是否ok
+         */
         // remove any nodes we aren't ready to send to
         Iterator<Node> iter = result.readyNodes.iterator();
         long notReadyTimeout = Long.MAX_VALUE;
         while (iter.hasNext()) {
             Node node = iter.next();
+            /**
+             *  第一次出现的node都会返回false，然后被移除
+             *  因为网络没有准备好
+             */
             if (!this.client.ready(node, now)) {
                 iter.remove();
                 notReadyTimeout = Math.min(notReadyTimeout, this.client.connectionDelay(node, now));
             }
         }
 
+        /**
+         * 将发送到同一个个节点的多个批次合起来作为一个请求
+         * 当分区个数大于节点个数的时候，必然会有多个分区在同一个节点上
+         *
+         *
+         * 对于第一次   下面这个方法不会执行，因为没有node了
+         */
         // create produce requests
         Map<Integer, List<ProducerBatch>> batches = this.accumulator.drain(cluster, result.readyNodes,
                 this.maxRequestSize, now);
@@ -261,6 +301,9 @@ public class Sender implements Runnable {
             }
         }
 
+        /**
+         * 超时的批次
+         */
         List<ProducerBatch> expiredBatches = this.accumulator.expiredBatches(this.requestTimeout, now);
         boolean needsTransactionStateReset = false;
         // Reset the producer id if an expired batch has previously been sent to the broker. Also update the metrics
@@ -296,6 +339,9 @@ public class Sender implements Runnable {
             // otherwise the select time will be the time difference between now and the metadata expiry time;
             pollTimeout = 0;
         }
+        /**
+         *
+         */
         sendProduceRequests(batches, now);
 
         return pollTimeout;
@@ -612,7 +658,11 @@ public class Sender implements Runnable {
      * Transfer the record batches into a list of produce requests on a per-node basis
      */
     private void sendProduceRequests(Map<Integer, List<ProducerBatch>> collated, long now) {
+
         for (Map.Entry<Integer, List<ProducerBatch>> entry : collated.entrySet())
+            /**
+             *
+             */
             sendProduceRequest(now, entry.getKey(), acks, requestTimeout, entry.getValue());
     }
 
@@ -663,7 +713,9 @@ public class Sender implements Runnable {
         };
 
         String nodeId = Integer.toString(destination);
+        // 创建请求
         ClientRequest clientRequest = client.newClientRequest(nodeId, requestBuilder, now, acks != 0, callback);
+        // 发送出去
         client.send(clientRequest, now);
         log.trace("Sent produce request to {}: {}", nodeId, requestBuilder);
     }

@@ -46,11 +46,24 @@ public class BufferPool {
     static final String WAIT_TIME_SENSOR_NAME = "bufferpool-wait-time";
 
     private final long totalMemory;
+
+    /**
+     * poolableSize  就是批次大小
+     */
     private final int poolableSize;
     private final ReentrantLock lock;
+    /**
+     * 池子就是一个队列
+     * 一开始里面是空的
+     */
     private final Deque<ByteBuffer> free;
+
+    /**
+     * 只有内存不够的时候里面才会有值
+     */
     private final Deque<Condition> waiters;
     /** This memory is accounted for separately from the poolable buffers in free. */
+    // 默认是32M
     private long availableMemory;
     private final Metrics metrics;
     private final Time time;
@@ -68,6 +81,7 @@ public class BufferPool {
     public BufferPool(long memory, int poolableSize, Metrics metrics, Time time, String metricGrpName) {
         this.poolableSize = poolableSize;
         this.lock = new ReentrantLock();
+
         this.free = new ArrayDeque<>();
         this.waiters = new ArrayDeque<>();
         this.totalMemory = memory;
@@ -108,24 +122,38 @@ public class BufferPool {
             // now check if the request is immediately satisfiable with the
             // memory on hand or if we need to block
             int freeListSize = freeSize() * this.poolableSize;
+
+            // 可用内存 + 内存池里面的内存   对于等于 要申请的内存max(16k, 消息大小)
             if (this.availableMemory + freeListSize >= size) {
                 // we have enough unallocated or pooled memory to immediately
                 // satisfy the request
                 freeUp(size);
+                /**
+                 * 分配内存
+                 */
                 ByteBuffer allocatedBuffer = allocateByteBuffer(size);
                 this.availableMemory -= size;
                 return allocatedBuffer;
             } else {
+                /**
+                 * 内存不够了
+                 */
                 // we are out of memory and will have to block
                 int accumulated = 0;
                 ByteBuffer buffer = null;
                 boolean hasError = true;
+                // 创建一个Condition
                 Condition moreMemory = this.lock.newCondition();
                 try {
                     long remainingTimeToBlockNs = TimeUnit.MILLISECONDS.toNanos(maxTimeToBlockMs);
+
                     this.waiters.addLast(moreMemory);
                     // loop over and over until we have a buffer or have reserved
                     // enough memory to allocate one
+                    /**
+                     * accumulated  能申请到的内存
+                     * size 要申请的内存
+                     */
                     while (accumulated < size) {
                         long startWaitNs = time.nanoseconds();
                         long timeNs;
@@ -146,6 +174,10 @@ public class BufferPool {
 
                         // check if we can satisfy this request from the free list,
                         // otherwise allocate memory
+                        /**
+                         * 要申请的内存就是一个batch的大小，刚好内存池中有空闲的内存，
+                         * 就直接拿过来用了
+                         */
                         if (accumulated == 0 && size == this.poolableSize && !this.free.isEmpty()) {
                             // just grab a buffer from the free list
                             buffer = this.free.pollFirst();
@@ -153,7 +185,14 @@ public class BufferPool {
                         } else {
                             // we'll need to allocate memory, but we may only get
                             // part of what we need on this iteration
+                            /**
+                             * 释放内存
+                             */
                             freeUp(size - accumulated);
+
+                            /**
+                             * 分配内存
+                             */
                             int got = (int) Math.min(size - accumulated, this.availableMemory);
                             this.availableMemory -= got;
                             accumulated += got;
@@ -211,13 +250,29 @@ public class BufferPool {
         lock.lock();
         try {
             if (size == this.poolableSize && size == buffer.capacity()) {
+                /**
+                 * 刚好大小就是一个批次的大小
+                 */
                 buffer.clear();
                 this.free.add(buffer);
             } else {
+                /**
+                 * 不是批次大小
+                 * 那么就等着垃圾回收，
+                 * 所以也可以配置批次大小不要小于消息大小，减轻gc的压力
+                 *
+                 * 为什么不直接把不是一个批次大小的也放回到内存池中？？
+                 * 因为固定时间间隔都会将batch发送出去，但是这个大size的batch可能经常写不满就被发出去了，
+                 * 这样内存的利用率就会很低
+                 */
                 this.availableMemory += size;
             }
             Condition moreMem = this.waiters.peekFirst();
             if (moreMem != null)
+
+            /**
+             * 唤醒正在等待分配内存的线程
+             */
                 moreMem.signal();
         } finally {
             lock.unlock();
@@ -225,6 +280,9 @@ public class BufferPool {
     }
 
     public void deallocate(ByteBuffer buffer) {
+        /**
+         *
+         */
         deallocate(buffer, buffer.capacity());
     }
 

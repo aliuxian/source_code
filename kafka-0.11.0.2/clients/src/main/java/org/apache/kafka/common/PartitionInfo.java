@@ -24,7 +24,9 @@ public class PartitionInfo {
     private final String topic;
     private final int partition;
     private final Node leader;
+    // 副本存储的节点
     private final Node[] replicas;
+    // ISR列表中副本存储的节点
     private final Node[] inSyncReplicas;
 
     public PartitionInfo(String topic, int partition, Node leader, Node[] replicas, Node[] inSyncReplicas) {

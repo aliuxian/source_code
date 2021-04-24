@@ -442,6 +442,8 @@ public class DFSOutputStream extends FSOutputSummer
               doSleep = false;
               now = Time.monotonicNow();
             }
+
+
             if (streamerClosed || hasError || !dfsClient.clientRunning) {
               continue;
             }
@@ -463,6 +465,7 @@ public class DFSOutputStream extends FSOutputSummer
               }
             }
           }
+
 
           // get new block from namenode.
           if (stage == BlockConstructionStage.PIPELINE_SETUP_CREATE) {

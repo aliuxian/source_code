@@ -54,11 +54,17 @@ public final class Metadata {
     public static final long TOPIC_EXPIRY_MS = 5 * 60 * 1000;
     private static final long TOPIC_EXPIRY_NEEDS_UPDATE = -1L;
 
+    // 更新元数据信息的最小时间间隔，100ms
     private final long refreshBackoffMs;
+    // 自动更新元数据的时间间隔   5m
     private final long metadataExpireMs;
+    // 元数据的版本号
     private int version;
+    // 最近一次更新元数据的时间
     private long lastRefreshMs;
+    // 最近一个成功更新元数据的时间，正常情况下，与上一个参数的值应该是一样的
     private long lastSuccessfulRefreshMs;
+    // 集群信息
     private Cluster cluster;
     private boolean needUpdate;
     /* Topics with expiry time */
@@ -66,6 +72,7 @@ public final class Metadata {
     private final List<Listener> listeners;
     private final ClusterResourceListeners clusterResourceListeners;
     private boolean needMetadataForAllTopics;
+    // 如果topic不存在，允许自动创建
     private final boolean allowAutoTopicCreation;
     private final boolean topicExpiryEnabled;
 
@@ -156,6 +163,10 @@ public final class Metadata {
         long remainingWaitMs = maxWaitMs;
         while (this.version <= lastVersion) {
             if (remainingWaitMs != 0)
+            /**
+             * 等待获取元数据的线程获取到元数据
+             * 获取到元数据之后会唤醒自己
+             */
                 wait(remainingWaitMs);
             long elapsed = System.currentTimeMillis() - begin;
             if (elapsed >= maxWaitMs)
@@ -248,6 +259,9 @@ public final class Metadata {
             clusterResourceListeners.onUpdate(cluster.clusterResource());
         }
 
+        /**
+         * 唤醒等待的线程
+         */
         notifyAll();
         log.debug("Updated cluster metadata version {} to {}", this.version, this.cluster);
     }

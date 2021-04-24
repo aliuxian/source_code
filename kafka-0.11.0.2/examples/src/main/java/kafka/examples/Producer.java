@@ -24,6 +24,12 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
+
+/**
+ * 对锁的优化
+ * 读写分离。。。
+ * 分段。。。
+ */
 public class Producer extends Thread {
     private final KafkaProducer<Integer, String> producer;
     private final String topic;
@@ -46,11 +52,17 @@ public class Producer extends Thread {
             String messageStr = "Message_" + messageNo;
             long startTime = System.currentTimeMillis();
             if (isAsync) { // Send asynchronously
+                /**
+                 * 异步
+                 */
                 producer.send(new ProducerRecord<>(topic,
                     messageNo,
                     messageStr), new DemoCallBack(startTime, messageNo, messageStr));
             } else { // Send synchronously
                 try {
+                    /**
+                     * 同步
+                     */
                     producer.send(new ProducerRecord<>(topic,
                         messageNo,
                         messageStr)).get();
@@ -87,11 +99,15 @@ class DemoCallBack implements Callback {
      */
     public void onCompletion(RecordMetadata metadata, Exception exception) {
         long elapsedTime = System.currentTimeMillis() - startTime;
+        /**
+         * 本次发送消息有异常
+         */
         if (metadata != null) {
             System.out.println(
                 "message(" + key + ", " + message + ") sent to partition(" + metadata.partition() +
                     "), " +
                     "offset(" + metadata.offset() + ") in " + elapsedTime + " ms");
+            // 这里可以有其他的备用链路，根据生产来编写
         } else {
             exception.printStackTrace();
         }

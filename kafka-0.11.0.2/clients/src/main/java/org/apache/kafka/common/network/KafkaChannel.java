@@ -92,6 +92,9 @@ public class KafkaChannel {
     }
 
     public boolean finishConnect() throws IOException {
+        /**
+         *
+         */
         boolean connected = transportLayer.finishConnect();
         if (connected)
             state = ready() ? ChannelState.READY : ChannelState.AUTHENTICATE;
@@ -154,6 +157,10 @@ public class KafkaChannel {
         if (this.send != null)
             throw new IllegalStateException("Attempt to begin a send operation with prior send operation still in progress, connection id is " + id);
         this.send = send;
+        /**
+         * 绑定OP_WRITE事件
+         * 将数据写到channel中
+         */
         this.transportLayer.addInterestOps(SelectionKey.OP_WRITE);
     }
 
@@ -163,8 +170,15 @@ public class KafkaChannel {
         if (receive == null) {
             receive = new NetworkReceive(maxReceiveSize, id);
         }
-
+        /**
+         *
+         */
         receive(receive);
+
+        /**
+         * receive.complete()　
+         * 粘包拆包
+         */
         if (receive.complete()) {
             receive.payload().rewind();
             result = receive;
@@ -204,8 +218,14 @@ public class KafkaChannel {
     }
 
     private boolean send(Send send) throws IOException {
+        /**
+         * 最终发送网络请求的代码
+         */
         send.writeTo(transportLayer);
         if (send.completed())
+        /**
+         * 写完之后移除OP_WRITE事件
+         */
             transportLayer.removeInterestOps(SelectionKey.OP_WRITE);
 
         return send.completed();
