@@ -52,12 +52,21 @@ public class DefaultPartitioner implements Partitioner {
      * @param cluster The current cluster metadata
      */
     public int partition(String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
+        // 获取这个topic的分区数
         List<PartitionInfo> partitions = cluster.partitionsForTopic(topic);
         int numPartitions = partitions.size();
+
+
+        // 没有指定key
         if (keyBytes == null) {
+            // 原子类　随机数 +１
             int nextValue = nextValue(topic);
+            // 可用分区数
             List<PartitionInfo> availablePartitions = cluster.availablePartitionsForTopic(topic);
+
             if (availablePartitions.size() > 0) {
+
+                // 轮询
                 int part = Utils.toPositive(nextValue) % availablePartitions.size();
                 return availablePartitions.get(part).partition();
             } else {
@@ -65,6 +74,8 @@ public class DefaultPartitioner implements Partitioner {
                 return Utils.toPositive(nextValue) % numPartitions;
             }
         } else {
+            // 指定的key
+            // 使用hash值取模
             // hash the keyBytes to choose a partition
             return Utils.toPositive(Utils.murmur2(keyBytes)) % numPartitions;
         }

@@ -75,9 +75,10 @@ abstract public class FSOutputSummer extends OutputStream {
   public synchronized void write(int b) throws IOException {
 
     buf[count++] = (byte)b;
+    // buf 长度默认是 9
     if(count == buf.length) {
       /**
-       *
+       * 长度达到9进行flush
        */
       flushBuffer();
     }

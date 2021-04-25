@@ -49,6 +49,10 @@ public class PlaintextTransportLayer implements TransportLayer {
     public boolean finishConnect() throws IOException {
         boolean connected = socketChannel.finishConnect();
         if (connected)
+        /**
+         * 移除OP_CONNECT事件
+         * 增加OP_READ事件
+         */
             key.interestOps(key.interestOps() & ~SelectionKey.OP_CONNECT | SelectionKey.OP_READ);
         return connected;
     }

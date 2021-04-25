@@ -61,6 +61,9 @@ public class NetworkClient implements KafkaClient {
 
     private static final Logger log = LoggerFactory.getLogger(NetworkClient.class);
 
+    /**
+     * 多路复用器
+     */
     /* the selector used to perform network i/o */
     private final Selectable selector;
 
@@ -213,16 +216,28 @@ public class NetworkClient implements KafkaClient {
      */
     @Override
     public boolean ready(Node node, long now) {
+
+        // 节点是null，就抛异常
         if (node.isEmpty())
             throw new IllegalArgumentException("Cannot connect to empty node " + node);
 
+        /**
+         * 准备好了(底层channel)   返回true
+         * 第一次是false，网络还没有准备好
+         */
         if (isReady(node, now))
             return true;
 
+        /**
+         * 初始化连接
+         */
         if (connectionStates.canConnect(node.idString(), now))
             // if we are interested in sending to a node and we don't have a connection to it, initiate one
+            // 初始化网络连接
+            // 绑定OP_CONNECT
             initiateConnect(node, now);
 
+        // 没有准备好
         return false;
     }
 
@@ -310,6 +325,11 @@ public class NetworkClient implements KafkaClient {
     public boolean isReady(Node node, long now) {
         // if we need to update our metadata now declare all requests unready to make metadata requests first
         // priority
+        /**
+         * 发送数据的时候不能是正在更新元数据的时候
+         *
+         * 满足发送数据的要求
+         */
         return !metadataUpdater.isUpdateDue(now) && canSendRequest(node.idString());
     }
 
@@ -319,7 +339,12 @@ public class NetworkClient implements KafkaClient {
      * @param node The node
      */
     private boolean canSendRequest(String node) {
-        return connectionStates.isReady(node) && selector.isChannelReady(node) && inFlightRequests.canSendMore(node);
+        /**
+         *
+         */
+        return connectionStates.isReady(node) &&     // 连接状态
+                selector.isChannelReady(node) &&     // SocketChannel
+                inFlightRequests.canSendMore(node);  // 发送的请求不能超过5个默认
     }
 
     /**
@@ -329,12 +354,18 @@ public class NetworkClient implements KafkaClient {
      */
     @Override
     public void send(ClientRequest request, long now) {
+        /**
+         *
+         */
         doSend(request, false, now);
     }
 
     private void sendInternalMetadataRequest(MetadataRequest.Builder builder,
                                              String nodeConnectionId, long now) {
         ClientRequest clientRequest = newClientRequest(nodeConnectionId, builder, now, true);
+        /**
+         *
+         */
         doSend(clientRequest, true, now);
     }
 
@@ -367,6 +398,9 @@ public class NetworkClient implements KafkaClient {
             }
             // The call to build may also throw UnsupportedVersionException, if there are essential
             // fields that cannot be represented in the chosen version.
+            /**
+             *
+             */
             doSend(clientRequest, isInternalRequest, now, builder.build(version));
         } catch (UnsupportedVersionException e) {
             // If the version is not supported, skip sending the request over the wire.
@@ -393,6 +427,7 @@ public class NetworkClient implements KafkaClient {
                         header.apiVersion(), clientRequest.apiKey(), request, clientRequest.correlationId(), nodeId);
             }
         }
+
         Send send = request.toSend(nodeId, header);
         InFlightRequest inFlightRequest = new InFlightRequest(
                 header,
@@ -404,7 +439,13 @@ public class NetworkClient implements KafkaClient {
                 request,
                 send,
                 now);
+        /**
+         * 控制发送的请求个数
+         */
         this.inFlightRequests.add(inFlightRequest);
+        /**
+         *
+         */
         selector.send(inFlightRequest.send);
     }
 
@@ -428,8 +469,15 @@ public class NetworkClient implements KafkaClient {
             return responses;
         }
 
+        /**
+         * 发送元数据请求
+         */
         long metadataTimeout = metadataUpdater.maybeUpdate(now);
         try {
+
+            /**
+             * 真正建立网络的连接
+             */
             this.selector.poll(Utils.min(timeout, metadataTimeout, requestTimeoutMs));
         } catch (IOException e) {
             log.error("Unexpected error during I/O", e);
@@ -439,6 +487,9 @@ public class NetworkClient implements KafkaClient {
         long updatedNow = this.time.milliseconds();
         List<ClientResponse> responses = new ArrayList<>();
         handleCompletedSends(responses, updatedNow);
+        /**
+         * 处理响应
+         */
         handleCompletedReceives(responses, updatedNow);
         handleDisconnections(responses, updatedNow);
         handleConnections();
@@ -662,6 +713,9 @@ public class NetworkClient implements KafkaClient {
             }
             AbstractResponse body = createResponse(responseStruct, req.header);
             if (req.isInternalRequest && body instanceof MetadataResponse)
+            /**
+             * 处理响应中的元数据信息
+             */
                 metadataUpdater.handleCompletedMetadataResponse(req.header, now, (MetadataResponse) body);
             else if (req.isInternalRequest && body instanceof ApiVersionsResponse)
                 handleApiVersionsResponse(responses, req, now, (ApiVersionsResponse) body);
@@ -761,6 +815,8 @@ public class NetworkClient implements KafkaClient {
         try {
             log.debug("Initiating connection to node {}", node);
             this.connectionStates.connecting(nodeConnectionId, now);
+            // 建立连接
+            // 后面跟Java NIO一样
             selector.connect(nodeConnectionId,
                              new InetSocketAddress(node.host(), node.port()),
                              this.socketSendBuffer,
@@ -839,6 +895,9 @@ public class NetworkClient implements KafkaClient {
         @Override
         public void handleCompletedMetadataResponse(RequestHeader requestHeader, long now, MetadataResponse response) {
             this.metadataFetchInProgress = false;
+            /**
+             * 获取到了集群的元数据信息
+             */
             Cluster cluster = response.cluster();
             // check if any topics metadata failed to get updated
             Map<String, Errors> errors = response.errors();
@@ -848,6 +907,10 @@ public class NetworkClient implements KafkaClient {
             // don't update the cluster if there are no valid nodes...the topic we want may still be in the process of being
             // created which means we will get errors and no nodes until it exists
             if (cluster.nodes().size() > 0) {
+                /**
+                 * 更新元数据信息
+                 * 内部处理完元数据之后会唤醒等待的线程
+                 */
                 this.metadata.update(cluster, response.unavailableTopics(), now);
             } else {
                 log.trace("Ignoring empty metadata response with correlation id {}.", requestHeader.correlationId());
@@ -882,6 +945,9 @@ public class NetworkClient implements KafkaClient {
                 this.metadataFetchInProgress = true;
                 MetadataRequest.Builder metadataRequest;
                 if (metadata.needMetadataForAllTopics())
+                /**
+                 * 封装获取元数据的请求
+                 */
                     metadataRequest = MetadataRequest.Builder.allTopics();
                 else
                     metadataRequest = new MetadataRequest.Builder(new ArrayList<>(metadata.topics()),
@@ -889,6 +955,9 @@ public class NetworkClient implements KafkaClient {
 
 
                 log.debug("Sending metadata request {} to node {}", metadataRequest, node);
+                /**
+                 * 发送请求
+                 */
                 sendInternalMetadataRequest(metadataRequest, nodeConnectionId, now);
                 return requestTimeoutMs;
             }

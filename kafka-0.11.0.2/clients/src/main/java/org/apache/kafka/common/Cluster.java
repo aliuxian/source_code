@@ -34,14 +34,24 @@ import java.util.Set;
 public final class Cluster {
 
     private final boolean isBootstrapConfigured;
+    // 节点列表
     private final List<Node> nodes;
+    // 未被授权的topic
     private final Set<String> unauthorizedTopics;
     private final Set<String> internalTopics;
+    // controller 节点
     private final Node controller;
+
+    // partition 与 partition的信息映射关系
+    // partition 有副本，有主从等
     private final Map<TopicPartition, PartitionInfo> partitionsByTopicPartition;
+    // topic 与其 分区的映射关系
     private final Map<String, List<PartitionInfo>> partitionsByTopic;
+    // topic 与 可用分区的映射
     private final Map<String, List<PartitionInfo>> availablePartitionsByTopic;
+    //一台服务器上面有哪些分区
     private final Map<Integer, List<PartitionInfo>> partitionsByNode;
+    // 服务器ID与服务器的对对应关系
     private final Map<Integer, Node> nodesById;
     private final ClusterResource clusterResource;
 

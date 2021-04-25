@@ -79,13 +79,22 @@ import org.slf4j.LoggerFactory;
  * various getters. These are reset by each call to <code>poll()</code>.
  *
  * This class is not thread safe!
+ *
+ *
+ * 基于Java NIO的封装
  */
 public class Selector implements Selectable, AutoCloseable {
 
     public static final long NO_IDLE_TIMEOUT_MS = -1;
     private static final Logger log = LoggerFactory.getLogger(Selector.class);
 
+    /**
+     * 核心组件
+     */
     private final java.nio.channels.Selector nioSelector;
+    /**
+     * KafkaChannel  ===>  socketChannel
+     */
     private final Map<String, KafkaChannel> channels;
     private final List<Send> completedSends;
     private final List<NetworkReceive> completedReceives;
@@ -189,6 +198,9 @@ public class Selector implements Selectable, AutoCloseable {
         socket.setTcpNoDelay(true);
         boolean connected;
         try {
+            /**
+             * 尝试建立连接
+             */
             connected = socketChannel.connect(address);
         } catch (UnresolvedAddressException e) {
             socketChannel.close();
@@ -197,6 +209,9 @@ public class Selector implements Selectable, AutoCloseable {
             socketChannel.close();
             throw e;
         }
+        /**
+         * 注册事件
+         */
         SelectionKey key = socketChannel.register(nioSelector, SelectionKey.OP_CONNECT);
         KafkaChannel channel;
         try {
@@ -209,6 +224,7 @@ public class Selector implements Selectable, AutoCloseable {
             }
             throw new IOException("Channel could not be created for socket " + socketChannel, e);
         }
+        // 建立key和channel的联系
         key.attach(channel);
         this.channels.put(id, channel);
 
@@ -318,11 +334,15 @@ public class Selector implements Selectable, AutoCloseable {
 
         /* check ready keys */
         long startSelect = time.nanoseconds();
+        // 注册在selector上面的key
         int readyKeys = select(timeout);
         long endSelect = time.nanoseconds();
         this.sensors.selectTime.record(endSelect - startSelect, time.milliseconds());
 
         if (readyKeys > 0 || !immediatelyConnectedKeys.isEmpty()) {
+            /**
+             *
+             */
             pollSelectionKeys(this.nioSelector.selectedKeys(), false, endSelect);
             pollSelectionKeys(immediatelyConnectedKeys, true, endSelect);
         }
@@ -336,6 +356,7 @@ public class Selector implements Selectable, AutoCloseable {
 
         // Add to completedReceives after closing expired connections to avoid removing
         // channels with completed receives until all staged receives are completed.
+        // 处理响应
         addToCompletedReceives();
     }
 
@@ -346,6 +367,7 @@ public class Selector implements Selectable, AutoCloseable {
         while (iterator.hasNext()) {
             SelectionKey key = iterator.next();
             iterator.remove();
+            // 根据key拿到channel
             KafkaChannel channel = channel(key);
             long channelStartTimeNanos = recordTimePerConnection ? time.nanoseconds() : 0;
 
@@ -358,6 +380,7 @@ public class Selector implements Selectable, AutoCloseable {
 
                 /* complete any connections that have finished their handshake (either normally or immediately) */
                 if (isImmediatelyConnected || key.isConnectable()) {
+                    // 完成网络连接
                     if (channel.finishConnect()) {
                         this.connected.add(channel.id());
                         this.sensors.connectionCreated.record();
@@ -377,6 +400,10 @@ public class Selector implements Selectable, AutoCloseable {
 
                 /* if channel is ready read from any connections that have readable data */
                 if (channel.ready() && key.isReadable() && !hasStagedReceive(channel)) {
+                    /**
+                     * 读数据
+                     * 服务端的响应
+                     */
                     NetworkReceive networkReceive;
                     while ((networkReceive = channel.read()) != null)
                         addToStagedReceives(channel, networkReceive);
@@ -384,6 +411,9 @@ public class Selector implements Selectable, AutoCloseable {
 
                 /* if channel is ready write to any sockets that have space in their buffer and for which we have data */
                 if (channel.ready() && key.isWritable()) {
+                    /**
+                     * 写数据
+                     */
                     Send send = channel.write();
                     if (send != null) {
                         this.completedSends.add(send);
@@ -680,6 +710,7 @@ public class Selector implements Selectable, AutoCloseable {
                 KafkaChannel channel = entry.getKey();
                 if (!channel.isMute()) {
                     Deque<NetworkReceive> deque = entry.getValue();
+
                     addToCompletedReceives(channel, deque);
                     if (deque.isEmpty())
                         iter.remove();
