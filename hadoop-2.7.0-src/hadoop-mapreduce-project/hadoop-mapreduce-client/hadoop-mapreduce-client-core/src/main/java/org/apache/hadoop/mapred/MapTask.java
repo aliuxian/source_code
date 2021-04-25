@@ -899,6 +899,7 @@ public class MapTask extends Task {
       statusUpdate(umbilical);
       input.close();
       input = null;
+
       /**
        * 内部会调用flush方法
        */
@@ -2179,7 +2180,7 @@ public class MapTask extends Task {
 
       //The output stream for the final single output file
       /**
-       * 最后一个输出文件
+       * 合并之后的输出文件
        */
       FSDataOutputStream finalOut = rfs.create(finalOutputFile, true, 4096);
 
@@ -2213,7 +2214,7 @@ public class MapTask extends Task {
         final SpillRecord spillRec = new SpillRecord(partitions);
 
         /**
-         * 一次遍历每一个分区，然后遍历所有的溢写文件，将对应分区在每一个溢写文件中的索引信息找到，
+         * 依次遍历每一个分区，然后遍历所有的溢写文件，将对应分区在每一个溢写文件中的索引信息找到，
          * 为每一个文件中的该分区对应的数据创建一个Segment对象，并将其添加到segmentList中
          */
         for (int parts = 0; parts < partitions; parts++) {
