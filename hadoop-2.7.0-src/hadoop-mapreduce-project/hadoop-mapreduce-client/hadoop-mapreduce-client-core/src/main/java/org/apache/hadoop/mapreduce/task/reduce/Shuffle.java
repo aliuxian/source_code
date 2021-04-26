@@ -101,11 +101,20 @@ public class Shuffle<K, V> implements ShuffleConsumerPlugin<K, V>, ExceptionRepo
     int maxEventsToFetch = Math.min(MAX_EVENTS_TO_FETCH, eventsPerReducer);
 
     // Start the map-completion events fetcher thread
+    /**
+     * 获取map端的完成情况
+     */
     final EventFetcher<K,V> eventFetcher = 
       new EventFetcher<K,V>(reduceId, umbilical, scheduler, this,
           maxEventsToFetch);
     eventFetcher.start();
-    
+
+    /**
+     * 文件拉取线程
+     * 本地模式默认是1，
+     * 分布式模式，默认是5
+     * 参数：mapreduce.reduce.shuffle.parallelcopies
+     */
     // Start the map-output fetcher threads
     boolean isLocal = localMapFiles != null;
     final int numFetchers = isLocal ? 1 :

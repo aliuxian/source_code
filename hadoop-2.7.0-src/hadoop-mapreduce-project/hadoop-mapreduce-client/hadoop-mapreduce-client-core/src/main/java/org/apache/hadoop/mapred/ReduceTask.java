@@ -373,6 +373,9 @@ public class ReduceTask extends Task {
                   mapOutputFile, localMapFiles);
     shuffleConsumerPlugin.init(shuffleContext);
 
+    /**
+     * 拉取map端输出文件
+     */
     rIter = shuffleConsumerPlugin.run();
 
     // free up the data structures

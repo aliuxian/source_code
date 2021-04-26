@@ -93,18 +93,24 @@ class OnDiskMapOutput<K, V> extends MapOutput<K, V> {
                       long compressedLength, long decompressedLength,
                       ShuffleClientMetrics metrics,
                       Reporter reporter) throws IOException {
+    /**
+     * 创建输入流
+     */
     input = new IFileInputStream(input, compressedLength, conf);
     // Copy data to local-disk
     long bytesLeft = compressedLength;
     try {
+      // 64KB
       final int BYTES_TO_READ = 64 * 1024;
       byte[] buf = new byte[BYTES_TO_READ];
       while (bytesLeft > 0) {
+        // 读入数据以及教验检验和
         int n = ((IFileInputStream)input).readWithChecksum(buf, 0, (int) Math.min(bytesLeft, BYTES_TO_READ));
         if (n < 0) {
           throw new IOException("read past end of stream reading " + 
                                 getMapId());
         }
+        // 数据写到磁盘
         disk.write(buf, 0, n);
         bytesLeft -= n;
         metrics.inputBytes(n);

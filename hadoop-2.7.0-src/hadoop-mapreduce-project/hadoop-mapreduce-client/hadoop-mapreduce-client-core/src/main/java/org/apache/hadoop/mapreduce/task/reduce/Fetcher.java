@@ -143,6 +143,7 @@ class Fetcher<K,V> extends Thread {
     this.connectionTimeout = 
       job.getInt(MRJobConfig.SHUFFLE_CONNECT_TIMEOUT,
                  DEFAULT_STALLED_COPY_TIMEOUT);
+
     this.readTimeout = 
       job.getInt(MRJobConfig.SHUFFLE_READ_TIMEOUT, DEFAULT_READ_TIMEOUT);
     
@@ -189,6 +190,9 @@ class Fetcher<K,V> extends Thread {
           host = scheduler.getHost();
           metrics.threadBusy();
 
+          /**
+           * 拉取数据
+           */
           // Shuffle
           copyFromHost(host);
         } finally {
@@ -302,6 +306,9 @@ class Fetcher<K,V> extends Thread {
     // reset retryStartTime for a new host
     retryStartTime = 0;
     // Get completed maps on 'host'
+    /**
+     * host 主机上mapTask的输出信息
+     */
     List<TaskAttemptID> maps = scheduler.getMapsForHost(host);
     
     // Sanity check to catch hosts with only 'OBSOLETE' maps, 
@@ -317,7 +324,10 @@ class Fetcher<K,V> extends Thread {
     
     // List of maps to be fetched yet
     Set<TaskAttemptID> remaining = new HashSet<TaskAttemptID>(maps);
-    
+
+    /**
+     * 建立连接
+     */
     // Construct the url and connect
     URL url = getMapOutputURL(host, maps);
     DataInputStream input = openShuffleUrl(host, remaining, url);
@@ -333,12 +343,18 @@ class Fetcher<K,V> extends Thread {
       TaskAttemptID[] failedTasks = null;
       while (!remaining.isEmpty() && failedTasks == null) {
         try {
+          /**
+           * 拉取数据
+           */
           failedTasks = copyMapOutput(host, input, remaining, fetchRetryEnabled);
         } catch (IOException e) {
           //
           // Setup connection again if disconnected by NM
           connection.disconnect();
           // Get map output from remaining tasks only.
+          /**
+           * 从剩下的mapTask中继续拉取数据
+           */
           url = getMapOutputURL(host, remaining);
           input = openShuffleUrl(host, remaining, url);
           if (input == null) {
@@ -534,6 +550,9 @@ class Fetcher<K,V> extends Thread {
         LOG.info("fetcher#" + id + " about to shuffle output of map "
             + mapOutput.getMapId() + " decomp: " + decompressedLength
             + " len: " + compressedLength + " to " + mapOutput.getDescription());
+        /**
+         * impl
+         */
         mapOutput.shuffle(host, is, compressedLength, decompressedLength,
             metrics, reporter);
       } catch (java.lang.InternalError e) {
@@ -545,7 +564,10 @@ class Fetcher<K,V> extends Thread {
       long endTime = Time.monotonicNow();
       // Reset retryStartTime as map task make progress if retried before.
       retryStartTime = 0;
-      
+
+      /**
+       * 拉取数据成功
+       */
       scheduler.copySucceeded(mapId, host, compressedLength, 
                               startTime, endTime, mapOutput);
       // Note successful shuffle

@@ -180,6 +180,9 @@ public class IFileInputStream extends InputStream {
       if (len < lenToCopy) {
         lenToCopy = len;
       }
+      /**
+       * 拷贝数据
+       */
       System.arraycopy(csum, (int) (currentOffset - dataLength), b, off, 
           lenToCopy);
       currentOffset += lenToCopy;
