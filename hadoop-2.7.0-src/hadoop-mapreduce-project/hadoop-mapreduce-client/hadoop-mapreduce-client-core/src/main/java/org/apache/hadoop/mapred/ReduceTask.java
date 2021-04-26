@@ -371,6 +371,9 @@ public class ReduceTask extends Task {
                   mergedMapOutputsCounter,
                   taskStatus, copyPhase, sortPhase, this,
                   mapOutputFile, localMapFiles);
+    /**
+     * 启动merge线程
+     */
     shuffleConsumerPlugin.init(shuffleContext);
 
     /**

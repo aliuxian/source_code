@@ -90,6 +90,9 @@ abstract class MergeThread<T,K,V> extends Thread {
           inputs = pendingToBeMerged.removeFirst();
         }
 
+        /**
+         * merge 操作
+         */
         // Merge
         merge(inputs);
       } catch (InterruptedException ie) {

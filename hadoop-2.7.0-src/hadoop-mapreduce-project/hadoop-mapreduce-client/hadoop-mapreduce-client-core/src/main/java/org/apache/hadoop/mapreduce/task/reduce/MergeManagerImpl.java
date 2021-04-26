@@ -206,6 +206,9 @@ public class MergeManagerImpl<K, V> implements MergeManager<K, V> {
           + "mergeThreshold: " + this.mergeThreshold);
     }
 
+    /**
+     * 内存到内存  默认false
+     */
     boolean allowMemToMemMerge = 
       jobConf.getBoolean(MRJobConfig.REDUCE_MEMTOMEM_ENABLED, false);
     if (allowMemToMemMerge) {
@@ -216,10 +219,16 @@ public class MergeManagerImpl<K, V> implements MergeManager<K, V> {
     } else {
       this.memToMemMerger = null;
     }
-    
+
+    /**
+     * 在内存中进行map端输出数据的合并
+     */
     this.inMemoryMerger = createInMemoryMerger();
     this.inMemoryMerger.start();
-    
+
+    /**
+     * 对磁盘中的文件进行merge
+     */
     this.onDiskMerger = new OnDiskMerger(this);
     this.onDiskMerger.start();
     

@@ -552,6 +552,7 @@ class Fetcher<K,V> extends Thread {
             + " len: " + compressedLength + " to " + mapOutput.getDescription());
         /**
          * impl
+         * 读入数据写到内存缓冲区（InMemoryMapOutput）
          */
         mapOutput.shuffle(host, is, compressedLength, decompressedLength,
             metrics, reporter);
