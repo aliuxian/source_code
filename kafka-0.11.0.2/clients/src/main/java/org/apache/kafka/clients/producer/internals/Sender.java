@@ -284,7 +284,7 @@ public class Sender implements Runnable {
         }
 
         /**
-         * 将发送到同一个个节点的多个批次合起来作为一个请求
+         * 将发送到同一个节点的多个批次合起来作为一个请求
          * 当分区个数大于节点个数的时候，必然会有多个分区在同一个节点上
          *
          *
@@ -293,6 +293,7 @@ public class Sender implements Runnable {
         // create produce requests
         Map<Integer, List<ProducerBatch>> batches = this.accumulator.drain(cluster, result.readyNodes,
                 this.maxRequestSize, now);
+
         if (guaranteeMessageOrder) {
             // Mute all the partitions drained
             for (List<ProducerBatch> batchList : batches.values()) {

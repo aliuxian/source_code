@@ -871,7 +871,9 @@ public class NetworkClient implements KafkaClient {
                 log.debug("Give up sending metadata request since no node is available");
                 return reconnectBackoffMs;
             }
-
+            /**
+             *
+             */
             return maybeUpdate(now, node);
         }
 

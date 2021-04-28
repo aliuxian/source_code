@@ -47,6 +47,9 @@ public class PlaintextTransportLayer implements TransportLayer {
 
     @Override
     public boolean finishConnect() throws IOException {
+        /**
+         * 建立连接
+         */
         boolean connected = socketChannel.finishConnect();
         if (connected)
         /**

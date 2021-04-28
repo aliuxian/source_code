@@ -334,7 +334,10 @@ public class Selector implements Selectable, AutoCloseable {
 
         /* check ready keys */
         long startSelect = time.nanoseconds();
-        // 注册在selector上面的key
+        /**
+         * 注册在selector上面的key
+         * 获取需要处理的key
+         */
         int readyKeys = select(timeout);
         long endSelect = time.nanoseconds();
         this.sensors.selectTime.record(endSelect - startSelect, time.milliseconds());
@@ -381,6 +384,10 @@ public class Selector implements Selectable, AutoCloseable {
                 /* complete any connections that have finished their handshake (either normally or immediately) */
                 if (isImmediatelyConnected || key.isConnectable()) {
                     // 完成网络连接
+                    /**
+                     * 同时会移除OP_CONNECT事件
+                     * 增加OP_READ事件
+                     */
                     if (channel.finishConnect()) {
                         this.connected.add(channel.id());
                         this.sensors.connectionCreated.record();
